@@ -61,6 +61,7 @@ namespace ESQLNew.Import
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
             long total = 0, ok = 0, fail = 0;
+            long nextRow = 2;
             long sinceCommit = 0;
             var conn = new MySql.Data.MySqlClient.MySqlConnection(connStr);
             conn.Open();
@@ -70,12 +71,13 @@ namespace ESQLNew.Import
                 foreach (var batch in Split(rows, batchSize))
                 {
                     ct.ThrowIfCancellationRequested();
+                    long batchStartRow = nextRow;
                     int batchOk = 0, batchFail = 0;
                     if (!TryInsertBatch(conn, tx, table, fieldNames, matched, batch, ref batchOk, ref batchFail, result))
                     {
-                        foreach (var row in batch)
+                        for (int i = 0; i < batch.Length; i++)
                         {
-                            if (!TryInsertRow(conn, tx, table, fieldNames, matched, row, result))
+                            if (!TryInsertRow(conn, tx, table, fieldNames, matched, batch[i], batchStartRow + i, result))
                                 fail++;
                             else
                                 ok++;
@@ -87,6 +89,7 @@ namespace ESQLNew.Import
                         fail += batchFail;
                     }
                     total += batch.Length;
+                    nextRow += batch.Length;
                     sinceCommit += batch.Length;
                     result.BatchCount++;
                     if (sinceCommit >= commitEvery)
@@ -144,9 +147,8 @@ namespace ESQLNew.Import
                 batchFail = 0;
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                result.Failures.Add(new RowFailure { RowNumber = result.Total + 1, Message = ex.Message });
                 batchOk = 0;
                 batchFail = batch.Length;
                 return false;
@@ -154,7 +156,7 @@ namespace ESQLNew.Import
         }
 
         private static bool TryInsertRow(MySqlConnection conn, MySqlTransaction tx, string table,
-            List<string> fieldNames, List<ColumnMapping> matched, object row, ImportResult result)
+            List<string> fieldNames, List<ColumnMapping> matched, object row, long rowNumber, ImportResult result)
         {
             try
             {
@@ -173,7 +175,7 @@ namespace ESQLNew.Import
             }
             catch (Exception ex)
             {
-                result.Failures.Add(new RowFailure { RowNumber = result.Total + 1, Message = ex.Message });
+                result.Failures.Add(new RowFailure { RowNumber = rowNumber, Message = ex.Message });
                 return false;
             }
         }
