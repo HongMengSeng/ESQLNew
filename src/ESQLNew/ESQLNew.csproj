@@ -15,4 +15,7 @@
     <PackageReference Include="System.Data.SQLite" Version="1.0.118" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ESQLNew.Tests" />
+  </ItemGroup>
 </Project>
