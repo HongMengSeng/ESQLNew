@@ -12,10 +12,11 @@ namespace ESQLNew.Excel
             using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (var reader = ExcelReaderFactory.CreateReader(stream))
             {
-                var ds = reader.AsDataSet();
                 var names = new List<string>();
-                foreach (System.Data.DataTable t in ds.Tables)
-                    names.Add(t.TableName);
+                do
+                {
+                    names.Add(reader.Name);
+                } while (reader.NextResult());
                 return names;
             }
         }

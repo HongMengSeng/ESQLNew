@@ -52,6 +52,7 @@ namespace ESQLNew
         private Label _logPageLabel;
         private int _logPageNumber;
         private SqLiteLogStore _logStore;
+        private bool _loadingConfig;
 
         private SqLiteLogStore LogStore
         {
@@ -111,6 +112,7 @@ namespace ESQLNew
             _saveButton.Click += (s, e) => SaveConfig();
             _keepLogsCheckBox.CheckedChanged += (s, e) =>
             {
+                if (_loadingConfig) return;
                 try
                 {
                     var cfg = AppConfig.Load(ConfigPath);
@@ -299,6 +301,7 @@ namespace ESQLNew
             }
             catch
             {
+                _statusLabel.Text = "日志写入失败(导入已完成)";
             }
         }
 
@@ -416,7 +419,9 @@ namespace ESQLNew
             _rawRadio.Checked = cfg.UseRaw;
             _batchTextBox.Text = cfg.BatchSize.ToString();
             _commitTextBox.Text = cfg.CommitEvery.ToString();
+            _loadingConfig = true;
             _keepLogsCheckBox.Checked = cfg.KeepLogs;
+            _loadingConfig = false;
             UpdateModeFields();
         }
 
@@ -507,6 +512,13 @@ namespace ESQLNew
             return int.TryParse(text, out value) ? value : fallback;
         }
 
+        private static int Clamp(int value, int min, int max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
+        }
+
         private void ChooseFile_Click(object sender, EventArgs e)
         {
             using (var ofd = new OpenFileDialog
@@ -579,8 +591,8 @@ namespace ESQLNew
                 return;
             }
             string connStr = CurrentConnectionString();
-            int batch = ParseInt(_batchTextBox.Text, 2000);
-            int commit = ParseInt(_commitTextBox.Text, 5000);
+            int batch = Clamp(ParseInt(_batchTextBox.Text, 2000), 500, 10000);
+            int commit = Clamp(ParseInt(_commitTextBox.Text, 5000), 1000, 100000);
 
             _importButton.Enabled = false;
             _previewButton.Enabled = false;
@@ -590,8 +602,13 @@ namespace ESQLNew
             _progressBar.Value = 0;
             _countLabel.Text = "已处理 0 / 总 0 / 成功 0 / 失败 0";
 
+            var lastProgress = new ImportProgress();
             Action<ImportProgress> progressCb = p =>
+            {
+                lastProgress = p;
+                if (IsDisposed || !IsHandleCreated) return;
                 BeginInvoke((Action)(() => UpdateProgress(p)));
+            };
 
             try
             {
@@ -602,7 +619,11 @@ namespace ESQLNew
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "导入失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                string msg = ex.Message;
+                if (lastProgress.Processed > 0)
+                    msg += string.Format("\r\n\r\n已处理 {0} 行(成功 {1} / 失败 {2})",
+                        lastProgress.Processed, lastProgress.Succeeded, lastProgress.Failed);
+                MessageBox.Show(this, msg, "导入失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -711,7 +732,7 @@ namespace ESQLNew
             sb.AppendLine("RowNumber,Message");
             foreach (var f in failures)
                 sb.AppendLine(f.RowNumber.ToString() + "," + CsvEscape(f.Message));
-            File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+            File.WriteAllText(path, sb.ToString(), new UTF8Encoding(true));
         }
 
         private static string CsvEscape(string value)

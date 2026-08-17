@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ESQLNew.Excel;
@@ -74,23 +73,10 @@ namespace ESQLNew.Import
             if (positions.Count == 0)
                 throw new InvalidOperationException("Excel 表头与目标表字段无匹配,请检查列名:" + table);
 
-            Action<ImportProgress> wrapped = null;
-            if (onProgress != null)
-            {
-                long total = ExcelStreamReader.ReadRows(excelPath).Count();
-                wrapped = p => onProgress(new ImportProgress
-                {
-                    Processed = p.Processed,
-                    Total = total,
-                    Succeeded = p.Succeeded,
-                    Failed = p.Failed
-                });
-            }
-
             var result = new ImportResult();
             BatchInserter.Execute(connStr, table, mappings,
                 RebuildRows(ExcelStreamReader.ReadRows(excelPath), positions),
-                batchSize, commitEvery, wrapped, result, ct);
+                batchSize, commitEvery, onProgress, result, ct);
             return Task.FromResult(result);
         }
 
