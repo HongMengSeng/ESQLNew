@@ -43,5 +43,13 @@ namespace ESQLNew.Tests
             var col = new ColumnInfo { Name = "n", DataType = "int", IsNullable = true, MaxLength = 0 };
             Assert.Equal(123L, ColumnMapper.ConvertValue("123", col));
         }
+
+        [Fact]
+        public void ConvertValue_OADateDoubleToDateTime()
+        {
+            var col = new ColumnInfo { Name = "d", DataType = "datetime", IsNullable = true, MaxLength = 0 };
+            var dt = ColumnMapper.ConvertValue(43938.0, col);
+            Assert.Equal(new System.DateTime(2020, 4, 17), dt);
+        }
     }
 }

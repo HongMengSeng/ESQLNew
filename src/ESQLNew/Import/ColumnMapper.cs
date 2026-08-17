@@ -42,6 +42,19 @@ namespace ESQLNew.Import
             {
                 var dt = raw as DateTime?;
                 if (dt.HasValue) return dt.Value;
+                var oa = raw as double?;
+                if (!oa.HasValue) oa = raw as float?;
+                if (oa.HasValue)
+                {
+                    try
+                    {
+                        return DateTime.FromOADate(oa.Value);
+                    }
+                    catch (ArgumentException)
+                    {
+                        throw new FormatException("无法解析日期: " + raw);
+                    }
+                }
                 if (s != null)
                 {
                     DateTime parsed;
