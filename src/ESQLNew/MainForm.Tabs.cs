@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using ESQLNew.Core;
 using ESQLNew.Excel;
 using ESQLNew.Import;
+using ESQLNew.Logging;
 using MySql.Data.MySqlClient;
 
 namespace ESQLNew
@@ -41,6 +42,32 @@ namespace ESQLNew
         private DataGridView _mappingGrid;
         private DataGridView _sampleGrid;
 
+        private TabControl _tabs;
+        private TabPage _logPage;
+        private DataGridView _logGrid;
+        private DataGridView _failGrid;
+        private Button _logRefreshButton;
+        private Button _logPrevButton;
+        private Button _logNextButton;
+        private Label _logPageLabel;
+        private int _logPageNumber;
+        private SqLiteLogStore _logStore;
+
+        private SqLiteLogStore LogStore
+        {
+            get
+            {
+                if (_logStore == null)
+                {
+                    _logStore = new SqLiteLogStore(Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "ESQLNew",
+                        "logs.db"));
+                }
+                return _logStore;
+            }
+        }
+
         private static string ConfigPath
         {
             get
@@ -54,11 +81,16 @@ namespace ESQLNew
 
         private void BuildTabs()
         {
-            var tabs = new TabControl { Dock = DockStyle.Fill };
-            tabs.TabPages.Add(BuildConnectionTab());
-            tabs.TabPages.Add(BuildImportTab());
-            tabs.TabPages.Add(BuildLogTab());
-            Controls.Add(tabs);
+            _tabs = new TabControl { Dock = DockStyle.Fill };
+            _tabs.TabPages.Add(BuildConnectionTab());
+            _tabs.TabPages.Add(BuildImportTab());
+            _logPage = BuildLogTab();
+            _tabs.TabPages.Add(_logPage);
+            _tabs.SelectedIndexChanged += (s, e) =>
+            {
+                if (_tabs.SelectedTab == _logPage) RefreshLogList();
+            };
+            Controls.Add(_tabs);
             LoadConfig();
         }
 
@@ -77,6 +109,18 @@ namespace ESQLNew
             _generateButton.Click += (s, e) => GenerateConnectionString();
             _testButton.Click += (s, e) => TestConnection();
             _saveButton.Click += (s, e) => SaveConfig();
+            _keepLogsCheckBox.CheckedChanged += (s, e) =>
+            {
+                try
+                {
+                    var cfg = AppConfig.Load(ConfigPath);
+                    cfg.KeepLogs = _keepLogsCheckBox.Checked;
+                    cfg.Save(ConfigPath);
+                }
+                catch
+                {
+                }
+            };
 
             return page;
         }
@@ -143,13 +187,119 @@ namespace ESQLNew
         private TabPage BuildLogTab()
         {
             var page = new TabPage("日志");
-            page.Controls.Add(new Label
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(8) };
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 65));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 35));
+
+            var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+            _logRefreshButton = new Button { Text = "刷新", Width = 70 };
+            _logPrevButton = new Button { Text = "上一页", Width = 70 };
+            _logNextButton = new Button { Text = "下一页", Width = 70 };
+            _logPageLabel = new Label { Text = "第 1 页", AutoSize = true, Margin = new Padding(10, 8, 0, 0) };
+            toolbar.Controls.Add(_logRefreshButton);
+            toolbar.Controls.Add(_logPrevButton);
+            toolbar.Controls.Add(_logNextButton);
+            toolbar.Controls.Add(_logPageLabel);
+
+            _logGrid = BuildPreviewGrid();
+            _logGrid.Columns.Add("Id", "Id");
+            _logGrid.Columns[0].Visible = false;
+            _logGrid.Columns.Add("Timestamp", "时间");
+            _logGrid.Columns.Add("FileName", "文件");
+            _logGrid.Columns.Add("TableName", "表名");
+            _logGrid.Columns.Add("Total", "总数");
+            _logGrid.Columns.Add("Succeeded", "成功");
+            _logGrid.Columns.Add("Failed", "失败");
+            _logGrid.Columns.Add("ElapsedMs", "耗时(ms)");
+            _logGrid.Columns.Add("RowsPerSecond", "行每秒");
+
+            _failGrid = BuildPreviewGrid();
+            _failGrid.Columns.Add("RowNumber", "行号");
+            _failGrid.Columns.Add("Message", "错误信息");
+
+            layout.Controls.Add(toolbar, 0, 0);
+            layout.Controls.Add(_logGrid, 0, 1);
+            layout.Controls.Add(_failGrid, 0, 2);
+
+            _logRefreshButton.Click += (s, e) => RefreshLogList();
+            _logPrevButton.Click += (s, e) =>
             {
-                Text = "待实现",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter
-            });
+                if (_logPageNumber > 0)
+                {
+                    _logPageNumber--;
+                    RefreshLogList();
+                }
+            };
+            _logNextButton.Click += (s, e) =>
+            {
+                _logPageNumber++;
+                RefreshLogList();
+            };
+            _logGrid.SelectionChanged += (s, e) => ShowFailures();
+
+            page.Controls.Add(layout);
             return page;
+        }
+
+        private void RefreshLogList()
+        {
+            try
+            {
+                var cfg = AppConfig.Load(ConfigPath);
+                if (cfg.LogRetentionDays > 0) LogStore.PurgeOld(cfg.LogRetentionDays);
+                var rows = LogStore.Query(_logPageNumber, 100);
+                _logGrid.Rows.Clear();
+                foreach (var row in rows)
+                    _logGrid.Rows.Add(row);
+                _failGrid.Rows.Clear();
+                _logPrevButton.Enabled = _logPageNumber > 0;
+                _logNextButton.Enabled = rows.Count >= 100;
+                _logPageLabel.Text = "第 " + (_logPageNumber + 1) + " 页";
+            }
+            catch
+            {
+            }
+        }
+
+        private void ShowFailures()
+        {
+            _failGrid.Rows.Clear();
+            if (_logGrid.SelectedRows.Count == 0) return;
+            var id = _logGrid.SelectedRows[0].Cells[0].Value;
+            if (id == null) return;
+            try
+            {
+                foreach (var row in LogStore.GetFailures((long)id))
+                    _failGrid.Rows.Add(row);
+            }
+            catch
+            {
+            }
+        }
+
+        private void WriteImportLog(string file, string table, ImportResult result)
+        {
+            try
+            {
+                if (!AppConfig.Load(ConfigPath).KeepLogs) return;
+                LogStore.LogImport(
+                    DateTime.Now,
+                    file,
+                    table,
+                    result.Total,
+                    result.Succeeded,
+                    result.Failed,
+                    (long)result.Elapsed.TotalMilliseconds,
+                    result.RowsPerSecond,
+                    result.Failures);
+                var cfg = AppConfig.Load(ConfigPath);
+                if (cfg.LogRetentionDays > 0) LogStore.PurgeOld(cfg.LogRetentionDays);
+                if (_tabs.SelectedTab == _logPage) RefreshLogList();
+            }
+            catch
+            {
+            }
         }
 
         private GroupBox BuildConnectionGroup()
@@ -448,6 +598,7 @@ namespace ESQLNew
                 var result = await Task.Run(() =>
                     ImportEngine.Run(connStr, table, path, batch, commit, progressCb, System.Threading.CancellationToken.None).Result);
                 ShowReport(result);
+                WriteImportLog(path, table, result);
             }
             catch (Exception ex)
             {
