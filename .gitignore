@@ -1,0 +1,7 @@
+.codebuddy/
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.superpowers/
