@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace ESQLNew
@@ -7,6 +8,9 @@ namespace ESQLNew
         public MainForm()
         {
             Text = "ESQLNew - Excel 批量导入";
+            ClientSize = new Size(560, 480);
+            MinimumSize = new Size(500, 400);
+            BuildTabs();
         }
     }
 }
