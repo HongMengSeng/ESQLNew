@@ -24,7 +24,8 @@ namespace ESQLNew.Import
                 {
                     ExcelColumn = h,
                     TableField = matched != null ? matched.Name : null,
-                    Matched = matched != null
+                    Matched = matched != null,
+                    TableColumn = matched
                 });
             }
             return result;

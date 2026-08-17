@@ -15,6 +15,7 @@ namespace ESQLNew.Import
         public string ExcelColumn { get; set; }
         public string TableField { get; set; }
         public bool Matched { get; set; }
+        public ColumnInfo TableColumn { get; set; }
     }
 
     public class RowFailure
