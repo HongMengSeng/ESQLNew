@@ -729,9 +729,11 @@ namespace ESQLNew
             {
                 var headers = ExcelStreamReader.ReadHeaders(path);
                 IList<ColumnInfo> cols = null;
+                bool columnsLoaded = false;
                 try
                 {
                     cols = ImportEngine.GetTableColumns(CurrentConnectionString(), table);
+                    columnsLoaded = true;
                 }
                 catch (Exception ex)
                 {
@@ -741,6 +743,13 @@ namespace ESQLNew
                 var dlg = new ColumnMapDialog(table, headers, cols ?? new List<ColumnInfo>(), currentMap);
                 if (dlg.ShowDialog(this) == DialogResult.OK && dlg.Result != null)
                 {
+                    if (!columnsLoaded && currentMap != null && currentMap.Count > 0)
+                    {
+                        var confirm = MessageBox.Show(this,
+                            "未读取到目标表字段,保存将清空表 '" + table + "' 的现有映射。确定保存吗?",
+                            "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                        if (confirm != DialogResult.Yes) return;
+                    }
                     var maps = ColumnMapStore.Load(ColumnMapStore.ConfigPath);
                     maps[table] = dlg.Result;
                     ColumnMapStore.Save(ColumnMapStore.ConfigPath, maps);

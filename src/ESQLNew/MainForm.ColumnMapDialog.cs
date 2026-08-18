@@ -44,6 +44,12 @@ namespace ESQLNew
 
                 _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Excel 表头", ReadOnly = true });
                 var fieldCol = new DataGridViewComboBoxColumn { HeaderText = "英文字段", DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat };
+                _grid.EditingControlShowing += (s, e) =>
+                {
+                    var combo = e.Control as DataGridViewComboBoxEditingControl;
+                    if (combo != null)
+                        combo.DropDownStyle = ComboBoxStyle.DropDownList;
+                };
                 foreach (var f in _fieldNames)
                     fieldCol.Items.Add(f);
                 _grid.Columns.Add(fieldCol);
