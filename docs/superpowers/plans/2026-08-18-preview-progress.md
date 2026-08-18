@@ -136,6 +136,10 @@ git commit -m "feat: add progress dialog for preview"
             }
 
             _previewButton.Enabled = false;
+            _importButton.Enabled = false;
+            _chooseFileButton.Enabled = false;
+            _tableComboBox.Enabled = false;
+            _tableRefreshButton.Enabled = false;
             var dlg = new ProgressDialog("匹配预览中");
             dlg.Show(this);
 
@@ -144,37 +148,65 @@ git commit -m "feat: add progress dialog for preview"
             {
                 try
                 {
-                    dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(1, "读取 Excel 表头")));
+                    if (IsDisposed || !IsHandleCreated) return;
+                    if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                        dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(1, "读取 Excel 表头")));
                     var headers = ExcelStreamReader.ReadHeaders(path);
 
-                    dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(2, "读取目标表结构")));
+                    if (IsDisposed || !IsHandleCreated) return;
+                    if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                        dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(2, "读取目标表结构")));
                     var cols = ImportEngine.GetTableColumns(connStr, table);
 
-                    dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(3, "匹配列映射")));
+                    if (IsDisposed || !IsHandleCreated) return;
+                    if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                        dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(3, "匹配列映射")));
                     var fieldMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
                     var mappings = ColumnMapper.Map(headers, cols, fieldMap);
 
-                    dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(4, "加载样例数据")));
+                    if (IsDisposed || !IsHandleCreated) return;
+                    if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                        dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(4, "加载样例数据")));
+                    if (IsDisposed || !IsHandleCreated) return;
                     BeginInvoke((System.Action)(() =>
                     {
-                        ShowMapping(mappings);
-                        ShowSample(mappings);
-                        int matched = 0;
-                        foreach (var m in mappings)
-                            if (m.Matched) matched++;
-                        _statusLabel.Text = string.Format("共 {0} 列,匹配 {1} 列,未匹配 {2} 列", mappings.Count, matched, mappings.Count - matched);
-                        if (ColumnMapStore.LastLoadCorrupt)
-                            _statusLabel.Text += "  列映射配置读取失败,已使用内置映射";
-                        dlg.Close();
-                        _previewButton.Enabled = true;
+                        try
+                        {
+                            ShowMapping(mappings);
+                            ShowSample(mappings);
+                            int matched = 0;
+                            foreach (var m in mappings)
+                                if (m.Matched) matched++;
+                            _statusLabel.Text = string.Format("共 {0} 列,匹配 {1} 列,未匹配 {2} 列", mappings.Count, matched, mappings.Count - matched);
+                            if (ColumnMapStore.LastLoadCorrupt)
+                                _statusLabel.Text += "  列映射配置读取失败,已使用内置映射";
+                        }
+                        catch (Exception uiEx)
+                        {
+                            MessageBox.Show(this, uiEx.Message, "预览失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            dlg.Close();
+                            _previewButton.Enabled = true;
+                            _importButton.Enabled = true;
+                            _chooseFileButton.Enabled = true;
+                            _tableComboBox.Enabled = true;
+                            _tableRefreshButton.Enabled = true;
+                        }
                     }));
                 }
                 catch (Exception ex)
                 {
+                    if (IsDisposed || !IsHandleCreated) return;
                     BeginInvoke((System.Action)(() =>
                     {
                         dlg.Close();
                         _previewButton.Enabled = true;
+                        _importButton.Enabled = true;
+                        _chooseFileButton.Enabled = true;
+                        _tableComboBox.Enabled = true;
+                        _tableRefreshButton.Enabled = true;
                         MessageBox.Show(this, ex.Message, "预览失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }));
                 }
