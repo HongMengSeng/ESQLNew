@@ -38,6 +38,7 @@ namespace ESQLNew
         private Button _chooseFileButton;
         private TextBox _fileTextBox;
         private Button _previewButton;
+        private Button _editMapButton;
         private Button _importButton;
         private Label _statusLabel;
         private Label _countLabel;
@@ -174,18 +175,21 @@ namespace ESQLNew
             };
             _tableRefreshButton = new Button { Text = "刷新表", Dock = DockStyle.Fill };
             _previewButton = new Button { Text = "匹配预览", Dock = DockStyle.Fill };
+            _editMapButton = new Button { Text = "编辑映射", Dock = DockStyle.Fill };
             _importButton = new Button { Text = "开始导入", Dock = DockStyle.Fill };
             _statusLabel = MakeLabel("");
             _countLabel = MakeLabel("已处理 0 / 总 0 / 成功 0 / 失败 0");
             _progressBar = new ProgressBar { Dock = DockStyle.Fill, Minimum = 0, Maximum = 100, Value = 0 };
 
-            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Margin = new Padding(0) };
+            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, Margin = new Padding(0) };
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.Controls.Add(_tableComboBox, 0, 0);
             tableFlow.Controls.Add(_previewButton, 1, 0);
             tableFlow.Controls.Add(_tableRefreshButton, 2, 0);
+            tableFlow.Controls.Add(_editMapButton, 3, 0);
 
             var previewTabs = new TabControl { Dock = DockStyle.Fill };
             var mappingPage = new TabPage("字段映射");
@@ -221,6 +225,7 @@ namespace ESQLNew
                     MessageBox.Show(this, "请先选择数据库", "刷新表列表", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             };
             _previewButton.Click += Preview_Click;
+            _editMapButton.Click += EditMapping_Click;
             _importButton.Click += StartImport_Click;
 
             page.Controls.Add(layout);
@@ -703,6 +708,49 @@ namespace ESQLNew
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, "预览失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void EditMapping_Click(object sender, EventArgs e)
+        {
+            string path = _fileTextBox.Text.Trim();
+            if (path.Length == 0)
+            {
+                MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            string table = _tableComboBox.Text.Trim();
+            if (!IsValidTableName(table))
+            {
+                MessageBox.Show(this, "表名只能包含字母、数字和下划线", "表名无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            try
+            {
+                var headers = ExcelStreamReader.ReadHeaders(path);
+                IList<ColumnInfo> cols = null;
+                try
+                {
+                    cols = ImportEngine.GetTableColumns(CurrentConnectionString(), table);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "无法读取目标表字段:" + ex.Message + "\r\n仍可编辑,但英文字段下拉为空", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                var currentMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
+                var dlg = new ColumnMapDialog(table, headers, cols ?? new List<ColumnInfo>(), currentMap);
+                if (dlg.ShowDialog(this) == DialogResult.OK && dlg.Result != null)
+                {
+                    var maps = ColumnMapStore.Load(ColumnMapStore.ConfigPath);
+                    maps[table] = dlg.Result;
+                    ColumnMapStore.Save(ColumnMapStore.ConfigPath, maps);
+                    _statusLabel.Text = "列映射已保存,共 " + dlg.Result.Count + " 列映射";
+                    Preview_Click(sender, e);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "编辑映射失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
