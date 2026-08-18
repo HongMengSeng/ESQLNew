@@ -265,7 +265,11 @@ git commit -m "feat: db metadata queries + no-db connection + system db toggle c
         private ComboBox _databaseComboBox;
         private Button _dbRefreshButton;
         private CheckBox _showSysDbCheckBox;
+        private ComboBox _tableComboBox;
+        private Button _tableRefreshButton;
 ```
+
+注意:`_tableComboBox`/`_tableRefreshButton` 字段在此声明、Task 3 才在 BuildImportTab 中实例化;本任务 `ReloadTables` 方法已引用它们,字段必须先存在才能编译。`_tableTextBox` 字段保留至 Task 3 移除(本任务不触碰导入 Tab 构建)。
 
 - [ ] **Step 2: 构建连接 Tab 控件**
 
@@ -482,20 +486,15 @@ git commit -m "feat: database dropdown with refresh and system-db toggle"
   - 字段 `_tableRefreshButton`(刷新表)。
   - 方法 `bool TableExists(string table)` — 当前表下拉非空时判断 table 是否在列表项中(大小写不敏感);下拉为空时返回 true(不做存在性断言)。
 
-- [ ] **Step 1: 替换字段声明**
+- [ ] **Step 1: 删除残留字段声明**
 
-在 `src/ESQLNew/MainForm.Tabs.cs` 第 36 行附近,将:
+在 `src/ESQLNew/MainForm.Tabs.cs` 第 36 行附近,删除整行:
 
 ```csharp
         private TextBox _tableTextBox;
 ```
 
-替换为:
-
-```csharp
-        private ComboBox _tableComboBox;
-        private Button _tableRefreshButton;
-```
+注意:字段 `_tableComboBox`/`_tableRefreshButton` 已在 Task 2 Step 1 声明,此处仅删除残留的 `_tableTextBox` 声明行。确保最终代码无重复 `_tableComboBox`/`_tableRefreshButton` 声明、无残留 `_tableTextBox` 引用。
 
 - [ ] **Step 2: 构建导入 Tab 控件**
 
