@@ -380,10 +380,13 @@ namespace ESQLNew
                 AutoSize = true,
                 Margin = new Padding(0, 4, 8, 0)
             };
-            var dbFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-            dbFlow.Controls.Add(_databaseComboBox);
-            dbFlow.Controls.Add(_dbRefreshButton);
-            dbFlow.Controls.Add(_showSysDbCheckBox);
+            var dbPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(0) };
+            dbPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            dbPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64));
+            dbPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+            dbPanel.Controls.Add(_databaseComboBox, 0, 0);
+            dbPanel.Controls.Add(_dbRefreshButton, 1, 0);
+            dbPanel.Controls.Add(_showSysDbCheckBox, 2, 0);
 
             _formRadio = new RadioButton { Text = "表单模式", AutoSize = true, Margin = new Padding(0, 4, 8, 0) };
             _rawRadio = new RadioButton { Text = "连接串模式", AutoSize = true, Margin = new Padding(0, 4, 8, 0) };
@@ -410,7 +413,7 @@ namespace ESQLNew
             layout.Controls.Add(MakeLabel("密码"), 0, 3);
             layout.Controls.Add(_passwordTextBox, 1, 3);
             layout.Controls.Add(MakeLabel("数据库"), 0, 4);
-            layout.Controls.Add(dbFlow, 1, 4);
+            layout.Controls.Add(dbPanel, 1, 4);
             layout.SetColumnSpan(modeFlow, 2);
             layout.Controls.Add(modeFlow, 0, 5);
             layout.Controls.Add(MakeLabel("连接串"), 0, 6);
