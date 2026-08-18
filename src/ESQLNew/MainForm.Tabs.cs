@@ -690,8 +690,6 @@ namespace ESQLNew
                 var headers = ExcelStreamReader.ReadHeaders(path);
                 var cols = ImportEngine.GetTableColumns(CurrentConnectionString(), table);
                 var fieldMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
-                if (ColumnMapStore.LastLoadCorrupt)
-                    _statusLabel.Text = "列映射配置读取失败,已使用内置映射";
                 var mappings = ColumnMapper.Map(headers, cols, fieldMap);
                 ShowMapping(mappings);
                 ShowSample(mappings);
