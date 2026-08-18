@@ -57,6 +57,35 @@ namespace ESQLNew.Tests
         }
 
         [Fact]
+        public void Map_ExternalMapTakesPriority()
+        {
+            var headers = new List<string> { "维修单号" };
+            var cols = new List<ColumnInfo>
+            {
+                new ColumnInfo { Name = "order_no", DataType = "varchar", IsNullable = true, MaxLength = 50 },
+                new ColumnInfo { Name = "repair_order_no", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+            };
+            var fieldMap = new Dictionary<string, string> { { "维修单号", "repair_order_no" } };
+            var map = ColumnMapper.Map(headers, cols, fieldMap);
+            Assert.True(map[0].Matched);
+            Assert.Equal("repair_order_no", map[0].TableField);
+        }
+
+        [Fact]
+        public void Map_ExternalMapMiss_FallsBackToName()
+        {
+            var headers = new List<string> { "自定义列" };
+            var cols = new List<ColumnInfo>
+            {
+                new ColumnInfo { Name = "自定义列", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+            };
+            var fieldMap = new Dictionary<string, string> { { "维修单号", "repair_order_no" } };
+            var map = ColumnMapper.Map(headers, cols, fieldMap);
+            Assert.True(map[0].Matched);
+            Assert.Equal("自定义列", map[0].TableField);
+        }
+
+        [Fact]
         public void ConvertValue_EmptyToNull()
         {
             var col = new ColumnInfo { Name = "a", DataType = "varchar", IsNullable = true, MaxLength = 50 };
