@@ -23,6 +23,40 @@ namespace ESQLNew.Tests
         }
 
         [Fact]
+        public void Map_ChineseHeaderMapsToEnglishField()
+        {
+            var headers = new List<string> { "维修单号", "担当", "机型年度", "无映射列" };
+            var cols = new List<ColumnInfo>
+            {
+                new ColumnInfo { Name = "repair_order_no", DataType = "varchar", IsNullable = true, MaxLength = 50 },
+                new ColumnInfo { Name = "person_in_charge", DataType = "varchar", IsNullable = true, MaxLength = 50 },
+                new ColumnInfo { Name = "model_year", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+            };
+            var map = ColumnMapper.Map(headers, cols);
+            Assert.Equal(4, map.Count);
+            Assert.True(map[0].Matched);
+            Assert.Equal("repair_order_no", map[0].TableField);
+            Assert.True(map[1].Matched);
+            Assert.Equal("person_in_charge", map[1].TableField);
+            Assert.True(map[2].Matched);
+            Assert.Equal("model_year", map[2].TableField);
+            Assert.False(map[3].Matched);
+        }
+
+        [Fact]
+        public void Map_MappingWinsOverNameCollision()
+        {
+            var headers = new List<string> { "担当" };
+            var cols = new List<ColumnInfo>
+            {
+                new ColumnInfo { Name = "person_in_charge", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+            };
+            var map = ColumnMapper.Map(headers, cols);
+            Assert.True(map[0].Matched);
+            Assert.Equal("person_in_charge", map[0].TableField);
+        }
+
+        [Fact]
         public void ConvertValue_EmptyToNull()
         {
             var col = new ColumnInfo { Name = "a", DataType = "varchar", IsNullable = true, MaxLength = 50 };
