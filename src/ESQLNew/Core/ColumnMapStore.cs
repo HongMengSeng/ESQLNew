@@ -7,6 +7,15 @@ namespace ESQLNew.Core
 {
     public static class ColumnMapStore
     {
+        private static bool _lastLoadCorrupt;
+
+        public static bool LastLoadCorrupt
+        {
+            get
+            {
+                return _lastLoadCorrupt;
+            }
+        }
         public static string ConfigPath
         {
             get
@@ -114,6 +123,7 @@ namespace ESQLNew.Core
 
         public static Dictionary<string, Dictionary<string, string>> Load(string path)
         {
+            _lastLoadCorrupt = false;
             try
             {
                 if (!File.Exists(path))
@@ -129,6 +139,7 @@ namespace ESQLNew.Core
             }
             catch
             {
+                _lastLoadCorrupt = true;
                 return BuiltinMap;
             }
         }
