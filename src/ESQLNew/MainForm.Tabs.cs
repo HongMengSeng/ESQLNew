@@ -618,7 +618,7 @@ namespace ESQLNew
                 UseRaw = _rawRadio.Checked,
                 BatchSize = ParseInt(_batchTextBox.Text, 2000),
                 CommitEvery = ParseInt(_commitTextBox.Text, 5000),
-KeepLogs = _keepLogsCheckBox.Checked,
+                KeepLogs = _keepLogsCheckBox.Checked,
                 ShowSystemDatabases = _showSysDbCheckBox.Checked
             };
             cfg.Save(ConfigPath);
