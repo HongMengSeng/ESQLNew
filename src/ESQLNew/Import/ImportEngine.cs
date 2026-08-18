@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ESQLNew.Core;
 using ESQLNew.Excel;
 using MySql.Data.MySqlClient;
 
@@ -64,7 +65,8 @@ namespace ESQLNew.Import
             if (cols.Count == 0)
                 throw new InvalidOperationException("目标表不存在或无列:" + table);
 
-            var mappings = ColumnMapper.Map(headers, cols);
+            var fieldMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
+            var mappings = ColumnMapper.Map(headers, cols, fieldMap);
             var positions = new List<int>();
             for (int i = 0; i < mappings.Count; i++)
                 if (mappings[i].Matched)

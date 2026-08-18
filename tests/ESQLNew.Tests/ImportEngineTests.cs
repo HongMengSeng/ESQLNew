@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using ESQLNew.Core;
 using ESQLNew.Import;
 using Xunit;
 
@@ -42,6 +45,25 @@ namespace ESQLNew.Tests
             };
             var mappings = ColumnMapper.Map(headers, cols);
             Assert.True(ImportEngine.AutoIdNeeded(mappings, cols));
+        }
+
+        [Fact]
+        public void Run_UsesTableSpecificExternalMap()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "impmap_" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                ColumnMapStore.Save(path, new Dictionary<string, Dictionary<string, string>>
+                {
+                    { "custom_table", new Dictionary<string, string> { { "自定义表头", "custom_field" } } }
+                });
+                var map = ColumnMapStore.GetMap(path, "custom_table");
+                Assert.Equal("custom_field", map["自定义表头"]);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         [Fact]

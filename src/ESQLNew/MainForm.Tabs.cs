@@ -689,7 +689,8 @@ namespace ESQLNew
             {
                 var headers = ExcelStreamReader.ReadHeaders(path);
                 var cols = ImportEngine.GetTableColumns(CurrentConnectionString(), table);
-                var mappings = ColumnMapper.Map(headers, cols);
+                var fieldMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
+                var mappings = ColumnMapper.Map(headers, cols, fieldMap);
                 ShowMapping(mappings);
                 ShowSample(mappings);
                 int matched = 0;
