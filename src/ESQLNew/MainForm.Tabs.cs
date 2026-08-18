@@ -179,11 +179,13 @@ namespace ESQLNew
             _countLabel = MakeLabel("已处理 0 / 总 0 / 成功 0 / 失败 0");
             _progressBar = new ProgressBar { Dock = DockStyle.Fill, Minimum = 0, Maximum = 100, Value = 0 };
 
-            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
+            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Margin = new Padding(0) };
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.Controls.Add(_tableComboBox, 0, 0);
             tableFlow.Controls.Add(_previewButton, 1, 0);
+            tableFlow.Controls.Add(_tableRefreshButton, 2, 0);
 
             var previewTabs = new TabControl { Dock = DockStyle.Fill };
             var mappingPage = new TabPage("字段映射");
@@ -514,12 +516,17 @@ namespace ESQLNew
                 foreach (var db in list)
                     if (string.Equals(db, current, StringComparison.OrdinalIgnoreCase))
                         found = true;
-                if (!found && list.Count > 0)
-                    _databaseComboBox.Text = "";
-                if (found)
+                if (!found)
+                {
+                    if (list.Count > 0)
+                        _databaseComboBox.Text = "";
+                    if (_databaseComboBox.Items.Count > 0)
+                        _databaseComboBox.SelectedIndex = -1;
+                }
+                else
+                {
                     _databaseComboBox.Text = current;
-                if (_databaseComboBox.Items.Count > 0)
-                    _databaseComboBox.SelectedIndex = -1;
+                }
             }
             catch (Exception ex)
             {
@@ -611,7 +618,8 @@ namespace ESQLNew
                 UseRaw = _rawRadio.Checked,
                 BatchSize = ParseInt(_batchTextBox.Text, 2000),
                 CommitEvery = ParseInt(_commitTextBox.Text, 5000),
-                KeepLogs = _keepLogsCheckBox.Checked
+KeepLogs = _keepLogsCheckBox.Checked,
+                ShowSystemDatabases = _showSysDbCheckBox.Checked
             };
             cfg.Save(ConfigPath);
             MessageBox.Show(this, "配置已保存", "保存配置", MessageBoxButtons.OK, MessageBoxIcon.Information);
