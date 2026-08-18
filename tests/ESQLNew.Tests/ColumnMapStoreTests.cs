@@ -198,5 +198,32 @@ namespace ESQLNew.Tests
                 File.Delete(path);
             }
         }
+
+        [Fact]
+        public void BuildMap_CombinesHeadersAndFields_SkipsEmpty()
+        {
+            var headers = new List<string> { "序号", "担当", "维修单号" };
+            var fields = new List<string> { "seq_no", "", null };
+            var map = ColumnMapStore.BuildMap(headers, fields);
+            Assert.Equal(1, map.Count);
+            Assert.Equal("seq_no", map["序号"]);
+        }
+
+        [Fact]
+        public void BuildMap_TrimsHeaderAndSkipsBlankHeader()
+        {
+            var headers = new List<string> { " 序号 ", "", "  " };
+            var fields = new List<string> { "seq_no", "order_no", "x" };
+            var map = ColumnMapStore.BuildMap(headers, fields);
+            Assert.Equal(1, map.Count);
+            Assert.Equal("seq_no", map["序号"]);
+        }
+
+        [Fact]
+        public void BuildMap_LengthMismatch_ReturnsEmpty()
+        {
+            var map = ColumnMapStore.BuildMap(new List<string> { "a" }, new List<string> { "x", "y" });
+            Assert.Empty(map);
+        }
     }
 }

@@ -160,5 +160,20 @@ namespace ESQLNew.Core
                 return result;
             return new Dictionary<string, string>();
         }
+
+        public static Dictionary<string, string> BuildMap(IList<string> excelHeaders, IList<string> selectedFields)
+        {
+            var result = new Dictionary<string, string>();
+            if (excelHeaders == null || selectedFields == null || excelHeaders.Count != selectedFields.Count)
+                return result;
+            for (int i = 0; i < excelHeaders.Count; i++)
+            {
+                var header = excelHeaders[i] == null ? "" : excelHeaders[i].Trim();
+                var field = selectedFields[i] == null ? "" : selectedFields[i].Trim();
+                if (header.Length == 0 || field.Length == 0) continue;
+                result[header] = field;
+            }
+            return result;
+        }
     }
 }
