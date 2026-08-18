@@ -37,7 +37,6 @@ namespace ESQLNew
 
         private Button _chooseFileButton;
         private TextBox _fileTextBox;
-        private TextBox _tableTextBox;
         private Button _previewButton;
         private Button _importButton;
         private Label _statusLabel;
@@ -166,7 +165,14 @@ namespace ESQLNew
 
             _chooseFileButton = new Button { Text = "选择文件", Dock = DockStyle.Fill };
             _fileTextBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true };
-            _tableTextBox = new TextBox { Dock = DockStyle.Fill };
+            _tableComboBox = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend
+            };
+            _tableRefreshButton = new Button { Text = "刷新表", Dock = DockStyle.Fill };
             _previewButton = new Button { Text = "匹配预览", Dock = DockStyle.Fill };
             _importButton = new Button { Text = "开始导入", Dock = DockStyle.Fill };
             _statusLabel = MakeLabel("");
@@ -176,7 +182,7 @@ namespace ESQLNew
             var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-            tableFlow.Controls.Add(_tableTextBox, 0, 0);
+            tableFlow.Controls.Add(_tableComboBox, 0, 0);
             tableFlow.Controls.Add(_previewButton, 1, 0);
 
             var previewTabs = new TabControl { Dock = DockStyle.Fill };
@@ -203,6 +209,15 @@ namespace ESQLNew
             layout.Controls.Add(_countLabel, 1, 5);
 
             _chooseFileButton.Click += ChooseFile_Click;
+            _tableRefreshButton.Click += (s, e) =>
+            {
+                if (_databaseComboBox.SelectedItem != null)
+                    ReloadTables(_databaseComboBox.SelectedItem.ToString());
+                else if (!string.IsNullOrWhiteSpace(_databaseComboBox.Text))
+                    ReloadTables(_databaseComboBox.Text.Trim());
+                else
+                    MessageBox.Show(this, "请先选择数据库", "刷新表列表", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            };
             _previewButton.Click += Preview_Click;
             _importButton.Click += StartImport_Click;
 
@@ -625,13 +640,13 @@ namespace ESQLNew
             {
                 if (ofd.ShowDialog(this) != DialogResult.OK) return;
                 _fileTextBox.Text = ofd.FileName;
-                _tableTextBox.Text = "";
+                _tableComboBox.Text = "";
                 _statusLabel.Text = "";
                 try
                 {
                     var names = ExcelStreamReader.SheetNames(ofd.FileName);
                     if (names.Count > 0)
-                        _tableTextBox.Text = names[0];
+                        _tableComboBox.Text = names[0];
                 }
                 catch (Exception ex)
                 {
@@ -648,10 +663,15 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            string table = _tableTextBox.Text.Trim();
+            string table = _tableComboBox.Text.Trim();
             if (!IsValidTableName(table))
             {
                 MessageBox.Show(this, "表名只能包含字母、数字和下划线", "表名无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (!TableExists(table))
+            {
+                MessageBox.Show(this, "表名不存在或已更改,请重新选择", "表名无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             try
@@ -680,10 +700,15 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            string table = _tableTextBox.Text.Trim();
+            string table = _tableComboBox.Text.Trim();
             if (!IsValidTableName(table))
             {
                 MessageBox.Show(this, "表名只能包含字母、数字和下划线", "表名无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (!TableExists(table))
+            {
+                MessageBox.Show(this, "表名不存在或已更改,请重新选择", "表名无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             string connStr = CurrentConnectionString();
@@ -693,7 +718,8 @@ namespace ESQLNew
             _importButton.Enabled = false;
             _previewButton.Enabled = false;
             _chooseFileButton.Enabled = false;
-            _tableTextBox.Enabled = false;
+            _tableComboBox.Enabled = false;
+            _tableRefreshButton.Enabled = false;
             _progressBar.Maximum = 100;
             _progressBar.Value = 0;
             _countLabel.Text = "已处理 0 / 总 0 / 成功 0 / 失败 0";
@@ -726,7 +752,8 @@ namespace ESQLNew
                 _importButton.Enabled = true;
                 _previewButton.Enabled = true;
                 _chooseFileButton.Enabled = true;
-                _tableTextBox.Enabled = true;
+                _tableComboBox.Enabled = true;
+                _tableRefreshButton.Enabled = true;
             }
         }
 
@@ -791,6 +818,15 @@ namespace ESQLNew
         private static bool IsValidTableName(string name)
         {
             return !string.IsNullOrEmpty(name) && Regex.IsMatch(name, "^[A-Za-z0-9_]+$");
+        }
+
+        private bool TableExists(string table)
+        {
+            if (_tableComboBox.Items.Count == 0) return true;
+            foreach (var item in _tableComboBox.Items)
+                if (string.Equals(item.ToString(), table, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
 
         private void ShowReport(ImportResult result)
