@@ -55,6 +55,8 @@ namespace ESQLNew
                     string preset = null;
                     if (currentMap != null)
                         currentMap.TryGetValue(header, out preset);
+                    if (preset != null && !_fieldNames.Contains(preset))
+                        preset = null;
                     _grid.Rows.Add(header, preset);
                 }
 
