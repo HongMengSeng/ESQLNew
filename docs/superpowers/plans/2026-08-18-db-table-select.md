@@ -369,6 +369,8 @@ git commit -m "feat: db metadata queries + no-db connection + system db toggle c
             _showSysDbCheckBox.Checked = cfg.ShowSystemDatabases;
 ```
 
+**SaveConfig 必改点:** `SaveConfig()` 中构造新 `AppConfig` 的初始化器必须新增一行 `ShowSystemDatabases = _showSysDbCheckBox.Checked,`(紧邻 `KeepLogs` 之后),否则点"保存配置"会把开关状态回写为默认 `false`。
+
 - [ ] **Step 5: 在 TestConnection 成功后自动拉取库列表**
 
 在 `TestConnection()` 的 `BeginInvoke` 回调中,`error == null` 分支内(第 475 行附近,`MessageBox.Show` 之后)追加:
@@ -400,12 +402,17 @@ git commit -m "feat: db metadata queries + no-db connection + system db toggle c
                 foreach (var db in list)
                     if (string.Equals(db, current, StringComparison.OrdinalIgnoreCase))
                         found = true;
-                if (!found && list.Count > 0)
-                    _databaseComboBox.Text = "";
-                if (found)
+                if (!found)
+                {
+                    if (list.Count > 0)
+                        _databaseComboBox.Text = "";
+                    if (_databaseComboBox.Items.Count > 0)
+                        _databaseComboBox.SelectedIndex = -1;
+                }
+                else
+                {
                     _databaseComboBox.Text = current;
-                if (_databaseComboBox.Items.Count > 0)
-                    _databaseComboBox.SelectedIndex = -1;
+                }
             }
             catch (Exception ex)
             {
@@ -520,14 +527,16 @@ git commit -m "feat: database dropdown with refresh and system-db toggle"
 将第 150-154 行的 tableFlow 构建改为:
 
 ```csharp
-            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
+            var tableFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Margin = new Padding(0) };
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             tableFlow.Controls.Add(_tableComboBox, 0, 0);
             tableFlow.Controls.Add(_previewButton, 1, 0);
+            tableFlow.Controls.Add(_tableRefreshButton, 2, 0);
 ```
 
-注意:`_previewButton` 已在 task 之前的代码中创建(第 144 行),此步仅调整 tableFlow 布局。原 tableFlow 第 154 行 `tableFlow.Controls.Add(_tableTextBox, 0, 0)` 替换为 `_tableComboBox`。
+注意:`_previewButton` 已在 task 之前的代码中创建(第 144 行),此步仅调整 tableFlow 布局。原 tableFlow 第 154 行 `tableFlow.Controls.Add(_tableTextBox, 0, 0)` 替换为 `_tableComboBox`;`_tableRefreshButton` 必须加入布局(第三列),否则按钮不可见。
 
 - [ ] **Step 3: 更新 ChooseFile_Click**
 
