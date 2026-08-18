@@ -514,6 +514,7 @@ namespace ESQLNew
 
         private void ReloadTables(string database)
         {
+            if (_tableComboBox == null) return;
             if (string.IsNullOrWhiteSpace(database)) return;
             try
             {
