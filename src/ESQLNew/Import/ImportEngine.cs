@@ -73,11 +73,69 @@ namespace ESQLNew.Import
             if (positions.Count == 0)
                 throw new InvalidOperationException("Excel 表头与目标表字段无匹配,请检查列名:" + table);
 
+            IEnumerable<object[]> rows = RebuildRows(ExcelStreamReader.ReadRows(excelPath), positions);
+            if (AutoIdNeeded(mappings, cols))
+            {
+                long nextId = GetMaxId(connStr, table) + 1;
+                rows = WithAutoId(rows, nextId);
+                mappings.Add(new ColumnMapping
+                {
+                    ExcelColumn = null,
+                    TableField = "id",
+                    Matched = true,
+                    TableColumn = GetColumn(cols, "id")
+                });
+            }
+
             var result = new ImportResult();
             BatchInserter.Execute(connStr, table, mappings,
-                RebuildRows(ExcelStreamReader.ReadRows(excelPath), positions),
+                rows,
                 batchSize, commitEvery, onProgress, result, ct);
             return Task.FromResult(result);
+        }
+
+        internal static bool AutoIdNeeded(IList<ColumnMapping> mappings, IList<ColumnInfo> cols)
+        {
+            if (GetColumn(cols, "id") == null) return false;
+            foreach (var m in mappings)
+                if (m.Matched && string.Equals(m.TableField, "id", StringComparison.OrdinalIgnoreCase))
+                    return false;
+            return true;
+        }
+
+        internal static IEnumerable<object[]> WithAutoId(IEnumerable<object[]> rows, long startId)
+        {
+            long next = startId;
+            foreach (var raw in rows)
+            {
+                var rebuilt = new object[raw.Length + 1];
+                Array.Copy(raw, rebuilt, raw.Length);
+                rebuilt[raw.Length] = next++;
+                yield return rebuilt;
+            }
+        }
+
+        private static ColumnInfo GetColumn(IList<ColumnInfo> cols, string name)
+        {
+            foreach (var c in cols)
+                if (string.Equals(c.Name.Trim('`'), name, StringComparison.OrdinalIgnoreCase))
+                    return c;
+            return null;
+        }
+
+        private static long GetMaxId(string connStr, string table)
+        {
+            using (var conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT COALESCE(MAX(id),0) FROM `" + table.Replace("`", "``") + "`", conn))
+                {
+                    object v = cmd.ExecuteScalar();
+                    if (v == null || v == DBNull.Value) return 0;
+                    return Convert.ToInt64(v);
+                }
+            }
         }
 
         internal static IEnumerable<object[]> RebuildRows(IEnumerable<object[]> rows, IList<int> positions)
