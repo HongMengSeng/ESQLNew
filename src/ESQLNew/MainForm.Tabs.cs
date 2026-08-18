@@ -859,6 +859,7 @@ namespace ESQLNew
             foreach (var idx in indices)
                 _sampleGrid.Columns.Add(mappings[idx].ExcelColumn, mappings[idx].ExcelColumn);
             _sampleGrid.Rows.Clear();
+            if (indices.Count == 0) return;
             int count = 0;
             foreach (var row in ExcelStreamReader.ReadRows(_fileTextBox.Text.Trim()))
             {
