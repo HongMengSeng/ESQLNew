@@ -20,7 +20,11 @@ namespace ESQLNew
         private TextBox _portTextBox;
         private TextBox _userTextBox;
         private TextBox _passwordTextBox;
-        private TextBox _databaseTextBox;
+        private ComboBox _databaseComboBox;
+        private Button _dbRefreshButton;
+        private CheckBox _showSysDbCheckBox;
+        private ComboBox _tableComboBox;
+        private Button _tableRefreshButton;
         private RadioButton _formRadio;
         private RadioButton _rawRadio;
         private TextBox _rawTextBox;
@@ -110,6 +114,26 @@ namespace ESQLNew
             _generateButton.Click += (s, e) => GenerateConnectionString();
             _testButton.Click += (s, e) => TestConnection();
             _saveButton.Click += (s, e) => SaveConfig();
+            _dbRefreshButton.Click += (s, e) => ReloadDatabases();
+            _showSysDbCheckBox.CheckedChanged += (s, e) =>
+            {
+                if (_loadingConfig) return;
+                try
+                {
+                    var cfg = AppConfig.Load(ConfigPath);
+                    cfg.ShowSystemDatabases = _showSysDbCheckBox.Checked;
+                    cfg.Save(ConfigPath);
+                }
+                catch
+                {
+                }
+                ReloadDatabases();
+            };
+            _databaseComboBox.SelectedIndexChanged += (s, e) =>
+            {
+                if (_databaseComboBox.SelectedItem != null)
+                    ReloadTables(_databaseComboBox.SelectedItem.ToString());
+            };
             _keepLogsCheckBox.CheckedChanged += (s, e) =>
             {
                 if (_loadingConfig) return;
@@ -325,7 +349,24 @@ namespace ESQLNew
             _portTextBox = new TextBox { Dock = DockStyle.Fill };
             _userTextBox = new TextBox { Dock = DockStyle.Fill };
             _passwordTextBox = new TextBox { Dock = DockStyle.Fill, PasswordChar = '●' };
-            _databaseTextBox = new TextBox { Dock = DockStyle.Fill };
+            _databaseComboBox = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend
+            };
+            _dbRefreshButton = new Button { Text = "刷新库", Width = 64 };
+            _showSysDbCheckBox = new CheckBox
+            {
+                Text = "显示系统库",
+                AutoSize = true,
+                Margin = new Padding(0, 4, 8, 0)
+            };
+            var dbFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+            dbFlow.Controls.Add(_databaseComboBox);
+            dbFlow.Controls.Add(_dbRefreshButton);
+            dbFlow.Controls.Add(_showSysDbCheckBox);
 
             _formRadio = new RadioButton { Text = "表单模式", AutoSize = true, Margin = new Padding(0, 4, 8, 0) };
             _rawRadio = new RadioButton { Text = "连接串模式", AutoSize = true, Margin = new Padding(0, 4, 8, 0) };
@@ -352,7 +393,7 @@ namespace ESQLNew
             layout.Controls.Add(MakeLabel("密码"), 0, 3);
             layout.Controls.Add(_passwordTextBox, 1, 3);
             layout.Controls.Add(MakeLabel("数据库"), 0, 4);
-            layout.Controls.Add(_databaseTextBox, 1, 4);
+            layout.Controls.Add(dbFlow, 1, 4);
             layout.SetColumnSpan(modeFlow, 2);
             layout.Controls.Add(modeFlow, 0, 5);
             layout.Controls.Add(MakeLabel("连接串"), 0, 6);
@@ -413,13 +454,14 @@ namespace ESQLNew
             _portTextBox.Text = cfg.Port.ToString();
             _userTextBox.Text = cfg.User ?? "";
             _passwordTextBox.Text = cfg.Password ?? "";
-            _databaseTextBox.Text = cfg.Database ?? "";
+            _databaseComboBox.Text = cfg.Database ?? "";
+            _loadingConfig = true;
+            _showSysDbCheckBox.Checked = cfg.ShowSystemDatabases;
             _rawTextBox.Text = cfg.RawConnectionString ?? "";
             _formRadio.Checked = !cfg.UseRaw;
             _rawRadio.Checked = cfg.UseRaw;
             _batchTextBox.Text = cfg.BatchSize.ToString();
             _commitTextBox.Text = cfg.CommitEvery.ToString();
-            _loadingConfig = true;
             _keepLogsCheckBox.Checked = cfg.KeepLogs;
             _loadingConfig = false;
             UpdateModeFields();
@@ -432,9 +474,61 @@ namespace ESQLNew
             _portTextBox.Enabled = form;
             _userTextBox.Enabled = form;
             _passwordTextBox.Enabled = form;
-            _databaseTextBox.Enabled = form;
+            _databaseComboBox.Enabled = form;
+            _dbRefreshButton.Enabled = form;
+            _showSysDbCheckBox.Enabled = form;
             _generateButton.Enabled = form;
             _rawTextBox.ReadOnly = form;
+        }
+
+        private void ReloadDatabases()
+        {
+            try
+            {
+                var connStr = CurrentConnectionString();
+                var all = DbMetadata.GetDatabases(connStr);
+                var list = new List<string>();
+                foreach (var db in all)
+                    if (_showSysDbCheckBox.Checked || !DbMetadata.IsSystemDatabase(db))
+                        list.Add(db);
+                string current = _databaseComboBox.Text.Trim();
+                _databaseComboBox.Items.Clear();
+                foreach (var db in list)
+                    _databaseComboBox.Items.Add(db);
+                bool found = false;
+                foreach (var db in list)
+                    if (string.Equals(db, current, StringComparison.OrdinalIgnoreCase))
+                        found = true;
+                if (!found && list.Count > 0)
+                    _databaseComboBox.Text = "";
+                if (found)
+                    _databaseComboBox.Text = current;
+                if (_databaseComboBox.Items.Count > 0)
+                    _databaseComboBox.SelectedIndex = -1;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "刷新库列表", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void ReloadTables(string database)
+        {
+            if (string.IsNullOrWhiteSpace(database)) return;
+            try
+            {
+                var tables = DbMetadata.GetTables(CurrentConnectionString(), database.Trim());
+                _tableComboBox.Items.Clear();
+                foreach (var t in tables)
+                    _tableComboBox.Items.Add(t);
+                _tableComboBox.Text = "";
+            }
+            catch (Exception ex)
+            {
+                _tableComboBox.Items.Clear();
+                _tableComboBox.Text = "";
+                MessageBox.Show(this, ex.Message, "刷新表列表", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private string CurrentConnectionString()
@@ -446,7 +540,7 @@ namespace ESQLNew
                 ParseInt(_portTextBox.Text, 3306),
                 _userTextBox.Text.Trim(),
                 _passwordTextBox.Text,
-                _databaseTextBox.Text.Trim());
+                _databaseComboBox.Text.Trim());
         }
 
         private void GenerateConnectionString()
@@ -478,6 +572,7 @@ namespace ESQLNew
                     if (error == null)
                     {
                         MessageBox.Show(this, "连接成功", "✅ 连接成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        ReloadDatabases();
                     }
                     else
                     {
@@ -495,7 +590,7 @@ namespace ESQLNew
                 Port = ParseInt(_portTextBox.Text, 3306),
                 User = _userTextBox.Text.Trim(),
                 Password = _passwordTextBox.Text,
-                Database = _databaseTextBox.Text.Trim(),
+                Database = _databaseComboBox.Text.Trim(),
                 RawConnectionString = _rawTextBox.Text,
                 UseRaw = _rawRadio.Checked,
                 BatchSize = ParseInt(_batchTextBox.Text, 2000),
