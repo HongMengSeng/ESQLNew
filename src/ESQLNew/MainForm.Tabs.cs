@@ -712,16 +712,22 @@ namespace ESQLNew
                     dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(4, "加载样例数据")));
                     BeginInvoke((System.Action)(() =>
                     {
-                        ShowMapping(mappings);
-                        ShowSample(mappings);
-                        int matched = 0;
-                        foreach (var m in mappings)
-                            if (m.Matched) matched++;
-                        _statusLabel.Text = string.Format("共 {0} 列,匹配 {1} 列,未匹配 {2} 列", mappings.Count, matched, mappings.Count - matched);
-                        if (ColumnMapStore.LastLoadCorrupt)
-                            _statusLabel.Text += "  列映射配置读取失败,已使用内置映射";
-                        dlg.Close();
-                        _previewButton.Enabled = true;
+                        try
+                        {
+                            ShowMapping(mappings);
+                            ShowSample(mappings);
+                            int matched = 0;
+                            foreach (var m in mappings)
+                                if (m.Matched) matched++;
+                            _statusLabel.Text = string.Format("共 {0} 列,匹配 {1} 列,未匹配 {2} 列", mappings.Count, matched, mappings.Count - matched);
+                            if (ColumnMapStore.LastLoadCorrupt)
+                                _statusLabel.Text += "  列映射配置读取失败,已使用内置映射";
+                        }
+                        finally
+                        {
+                            dlg.Close();
+                            _previewButton.Enabled = true;
+                        }
                     }));
                 }
                 catch (Exception ex)
