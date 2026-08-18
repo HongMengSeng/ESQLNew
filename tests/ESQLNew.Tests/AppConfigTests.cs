@@ -47,5 +47,13 @@ namespace ESQLNew.Tests
             Assert.Equal(5000, cfg.CommitEvery);
             Assert.True(cfg.KeepLogs);
         }
+
+        [Fact]
+        public void Default_ShowSystemDatabases_False()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "esqlnew_sysdb_" + Guid.NewGuid().ToString("N") + ".json");
+            var cfg = AppConfig.Load(path);
+            Assert.False(cfg.ShowSystemDatabases);
+        }
     }
 }

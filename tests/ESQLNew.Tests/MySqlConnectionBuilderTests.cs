@@ -18,5 +18,21 @@ namespace ESQLNew.Tests
             Assert.Contains("AllowLoadLocalInfile=false", cs);
             Assert.Contains("CharSet=utf8mb4", cs);
         }
+
+        [Fact]
+        public void Build_EmptyDatabase_OmitsDatabasePart()
+        {
+            var cs = ESQLNew.Core.MySqlConnectionBuilder.Build(
+                "192.168.201.112", 3306, "root", "pwd", "");
+            Assert.DoesNotContain("Database=", cs);
+        }
+
+        [Fact]
+        public void Build_WhitespaceDatabase_OmitsDatabasePart()
+        {
+            var cs = ESQLNew.Core.MySqlConnectionBuilder.Build(
+                "192.168.201.112", 3306, "root", "pwd", "   ");
+            Assert.DoesNotContain("Database=", cs);
+        }
     }
 }

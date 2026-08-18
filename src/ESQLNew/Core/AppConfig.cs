@@ -17,6 +17,7 @@ namespace ESQLNew.Core
         public int CommitEvery { get; set; } = 5000;
         public bool KeepLogs { get; set; } = true;
         public int LogRetentionDays { get; set; } = 30;
+        public bool ShowSystemDatabases { get; set; } = false;
 
         public static AppConfig Load(string path)
         {
