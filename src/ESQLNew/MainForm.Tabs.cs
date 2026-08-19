@@ -39,7 +39,11 @@ namespace ESQLNew
         private TextBox _fileTextBox;
         private Button _previewButton;
         private Button _editMapButton;
+        private Button _sheetSelectButton;
         private Button _importButton;
+        private IList<string> _selectedSheets;
+        private string _dedupKey;
+        private string _previewSheet;
         private Label _statusLabel;
         private Label _countLabel;
         private ProgressBar _progressBar;
@@ -176,6 +180,7 @@ namespace ESQLNew
             _tableRefreshButton = new Button { Text = "刷新表", Dock = DockStyle.Fill };
             _previewButton = new Button { Text = "匹配预览", Dock = DockStyle.Fill };
             _editMapButton = new Button { Text = "编辑映射", Dock = DockStyle.Fill };
+            _sheetSelectButton = new Button { Text = "选择工作表", Dock = DockStyle.Fill };
             _importButton = new Button { Text = "开始导入", Dock = DockStyle.Fill };
             _statusLabel = MakeLabel("");
             _countLabel = MakeLabel("已处理 0 / 总 0 / 成功 0 / 失败 0");
@@ -201,8 +206,14 @@ namespace ESQLNew
             previewTabs.TabPages.Add(mappingPage);
             previewTabs.TabPages.Add(samplePage);
 
+            var fileFlow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
+            fileFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fileFlow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+            fileFlow.Controls.Add(_fileTextBox, 0, 0);
+            fileFlow.Controls.Add(_sheetSelectButton, 1, 0);
+
             layout.Controls.Add(_chooseFileButton, 0, 0);
-            layout.Controls.Add(_fileTextBox, 1, 0);
+            layout.Controls.Add(fileFlow, 1, 0);
             layout.Controls.Add(MakeLabel("目标表"), 0, 1);
             layout.Controls.Add(tableFlow, 1, 1);
             layout.SetColumnSpan(_statusLabel, 2);
@@ -215,6 +226,7 @@ namespace ESQLNew
             layout.Controls.Add(_countLabel, 1, 5);
 
             _chooseFileButton.Click += ChooseFile_Click;
+            _sheetSelectButton.Click += ChooseSheet_Click;
             _tableRefreshButton.Click += (s, e) =>
             {
                 if (_databaseComboBox.SelectedItem != null)
@@ -657,17 +669,46 @@ namespace ESQLNew
                 if (ofd.ShowDialog(this) != DialogResult.OK) return;
                 _fileTextBox.Text = ofd.FileName;
                 _tableComboBox.Text = "";
+                _selectedSheets = null;
+                _dedupKey = null;
+                _previewSheet = null;
                 _statusLabel.Text = "";
                 try
                 {
-                    var names = ExcelStreamReader.SheetNames(ofd.FileName);
-                    if (names.Count > 0)
-                        _tableComboBox.Text = names[0];
+                    ExcelStreamReader.SheetNames(ofd.FileName);
                 }
                 catch (Exception ex)
                 {
                     _statusLabel.Text = "无法读取工作表:" + ex.Message;
                 }
+            }
+        }
+
+        private void ChooseSheet_Click(object sender, EventArgs e)
+        {
+            string path = _fileTextBox.Text.Trim();
+            if (path.Length == 0)
+            {
+                MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            try
+            {
+                var names = ExcelStreamReader.SheetNames(path);
+                var firstHeaders = names.Count > 0 ? ExcelStreamReader.ReadHeaders(path, names[0]) : new List<string>();
+                using (var dlg = new SheetSelectDialog(names, firstHeaders))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    _selectedSheets = dlg.SelectedSheets;
+                    _dedupKey = dlg.DedupKey;
+                    _previewSheet = _selectedSheets != null && _selectedSheets.Count > 0 ? _selectedSheets[0] : null;
+                    _statusLabel.Text = "已选 " + (_selectedSheets != null ? _selectedSheets.Count : 0) + " 个工作表"
+                        + (string.IsNullOrEmpty(_dedupKey) ? "" : ",去重键:" + _dedupKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                _statusLabel.Text = "无法读取工作表:" + ex.Message;
             }
         }
 
@@ -679,6 +720,12 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            if (_selectedSheets == null || _selectedSheets.Count == 0)
+            {
+                MessageBox.Show(this, "请先选择工作表", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            _previewSheet = _selectedSheets[0];
             string table = _tableComboBox.Text.Trim();
             if (!IsValidTableName(table))
             {
@@ -693,6 +740,7 @@ namespace ESQLNew
             _previewButton.Enabled = false;
             _importButton.Enabled = false;
             _chooseFileButton.Enabled = false;
+            _sheetSelectButton.Enabled = false;
             _tableComboBox.Enabled = false;
             _tableRefreshButton.Enabled = false;
             var dlg = new ProgressDialog("匹配预览中");
@@ -706,7 +754,7 @@ namespace ESQLNew
                     if (IsDisposed || !IsHandleCreated) return;
                     if (!dlg.IsDisposed && dlg.IsHandleCreated)
                         dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(1, "读取 Excel 表头")));
-                    var headers = ExcelStreamReader.ReadHeaders(path);
+                    var headers = ExcelStreamReader.ReadHeaders(path, _previewSheet);
 
                     if (IsDisposed || !IsHandleCreated) return;
                     if (!dlg.IsDisposed && dlg.IsHandleCreated)
@@ -746,6 +794,7 @@ namespace ESQLNew
                             _previewButton.Enabled = true;
                             _importButton.Enabled = true;
                             _chooseFileButton.Enabled = true;
+                            _sheetSelectButton.Enabled = true;
                             _tableComboBox.Enabled = true;
                             _tableRefreshButton.Enabled = true;
                         }
@@ -760,6 +809,7 @@ namespace ESQLNew
                         _previewButton.Enabled = true;
                         _importButton.Enabled = true;
                         _chooseFileButton.Enabled = true;
+                        _sheetSelectButton.Enabled = true;
                         _tableComboBox.Enabled = true;
                         _tableRefreshButton.Enabled = true;
                         MessageBox.Show(this, ex.Message, "预览失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -784,7 +834,7 @@ namespace ESQLNew
             }
             try
             {
-                var headers = ExcelStreamReader.ReadHeaders(path);
+                var headers = ExcelStreamReader.ReadHeaders(path, _previewSheet);
                 IList<ColumnInfo> cols = null;
                 bool columnsLoaded = false;
                 try
@@ -828,6 +878,11 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            if (_selectedSheets == null || _selectedSheets.Count == 0)
+            {
+                MessageBox.Show(this, "请先选择工作表", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             string table = _tableComboBox.Text.Trim();
             if (!IsValidTableName(table))
             {
@@ -846,6 +901,7 @@ namespace ESQLNew
             _importButton.Enabled = false;
             _previewButton.Enabled = false;
             _chooseFileButton.Enabled = false;
+            _sheetSelectButton.Enabled = false;
             _tableComboBox.Enabled = false;
             _tableRefreshButton.Enabled = false;
             _progressBar.Maximum = 100;
@@ -863,7 +919,7 @@ namespace ESQLNew
             try
             {
                 var result = await Task.Run(() =>
-                    ImportEngine.Run(connStr, table, path, batch, commit, progressCb, System.Threading.CancellationToken.None).Result);
+                    ImportEngine.RunMultiSheet(connStr, table, path, _selectedSheets, _dedupKey, batch, commit, progressCb, System.Threading.CancellationToken.None).Result);
                 ShowReport(result);
                 WriteImportLog(path, table, result);
             }
@@ -880,6 +936,7 @@ namespace ESQLNew
                 _importButton.Enabled = true;
                 _previewButton.Enabled = true;
                 _chooseFileButton.Enabled = true;
+                _sheetSelectButton.Enabled = true;
                 _tableComboBox.Enabled = true;
                 _tableRefreshButton.Enabled = true;
             }
@@ -918,7 +975,7 @@ namespace ESQLNew
             _sampleGrid.Rows.Clear();
             if (indices.Count == 0) return;
             int count = 0;
-            foreach (var row in ExcelStreamReader.ReadRows(_fileTextBox.Text.Trim()))
+            foreach (var row in ExcelStreamReader.ReadRows(_fileTextBox.Text.Trim(), _previewSheet))
             {
                 var values = new object[indices.Count];
                 for (int i = 0; i < indices.Count; i++)
