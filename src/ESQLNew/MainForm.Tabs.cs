@@ -670,12 +670,13 @@ namespace ESQLNew
                 _fileTextBox.Text = ofd.FileName;
                 _tableComboBox.Text = "";
                 _selectedSheets = null;
-                _dedupKey = null;
+                _dedupKey = "";
                 _previewSheet = null;
                 _statusLabel.Text = "";
                 try
                 {
-                    ExcelStreamReader.SheetNames(ofd.FileName);
+                    var names = ExcelStreamReader.SheetNames(ofd.FileName);
+                    _selectedSheets = names;
                 }
                 catch (Exception ex)
                 {
