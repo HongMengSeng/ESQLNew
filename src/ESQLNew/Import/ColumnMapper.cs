@@ -18,6 +18,7 @@ namespace ESQLNew.Import
             IDictionary<string, string> fieldMap)
         {
             var result = new List<ColumnMapping>(excelHeaders.Count);
+            var usedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var h in excelHeaders)
             {
                 ColumnInfo matched = null;
@@ -45,6 +46,8 @@ namespace ESQLNew.Import
                         }
                     }
                 }
+                if (matched != null && !usedFields.Add(matched.Name.Trim('`')))
+                    matched = null;
                 result.Add(new ColumnMapping
                 {
                     ExcelColumn = h,

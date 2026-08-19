@@ -86,6 +86,29 @@ namespace ESQLNew.Tests
         }
 
         [Fact]
+        public void Map_DuplicateHeaderToSameField_SecondIsUnmatched()
+        {
+            var headers = new List<string> { "分类", "其它列", "分类" };
+            var cols = new List<ColumnInfo>
+            {
+                new ColumnInfo { Name = "category", DataType = "varchar", IsNullable = true, MaxLength = 50 },
+                new ColumnInfo { Name = "other", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+            };
+            var fieldMap = new Dictionary<string, string>
+            {
+                { "分类", "category" },
+                { "其它列", "other" }
+            };
+            var map = ColumnMapper.Map(headers, cols, fieldMap);
+            Assert.Equal(3, map.Count);
+            Assert.True(map[0].Matched);
+            Assert.Equal("category", map[0].TableField);
+            Assert.True(map[1].Matched);
+            Assert.Equal("other", map[1].TableField);
+            Assert.False(map[2].Matched);
+        }
+
+        [Fact]
         public void ConvertValue_EmptyToNull()
         {
             var col = new ColumnInfo { Name = "a", DataType = "varchar", IsNullable = true, MaxLength = 50 };
