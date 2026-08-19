@@ -826,6 +826,11 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            if (_selectedSheets == null || _selectedSheets.Count == 0)
+            {
+                MessageBox.Show(this, "请先选择工作表", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             string table = _tableComboBox.Text.Trim();
             if (!IsValidTableName(table))
             {
