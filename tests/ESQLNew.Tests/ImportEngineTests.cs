@@ -105,6 +105,14 @@ namespace ESQLNew.Tests
                 Assert.Equal(5, merged.Count);
                 Assert.Equal("1001", merged[0][0] == null ? "" : merged[0][0].ToString());
                 Assert.Equal("张三", merged[0][1] == null ? "" : merged[0][1].ToString());
+                Assert.Equal("1002", merged[1][0] == null ? "" : merged[1][0].ToString());
+                Assert.Equal("李四", merged[1][1] == null ? "" : merged[1][1].ToString());
+                Assert.Equal("1003", merged[2][0] == null ? "" : merged[2][0].ToString());
+                Assert.Equal("王五", merged[2][1] == null ? "" : merged[2][1].ToString());
+                Assert.Equal("1004", merged[3][0] == null ? "" : merged[3][0].ToString());
+                Assert.Equal("赵六", merged[3][1] == null ? "" : merged[3][1].ToString());
+                Assert.Equal("1005", merged[4][0] == null ? "" : merged[4][0].ToString());
+                Assert.Equal("孙七", merged[4][1] == null ? "" : merged[4][1].ToString());
             }
             finally
             {
