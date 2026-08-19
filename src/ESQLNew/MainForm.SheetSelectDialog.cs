@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using ESQLNew.Excel;
 
 namespace ESQLNew
 {
@@ -9,13 +10,15 @@ namespace ESQLNew
     {
         private class SheetSelectDialog : Form
         {
+            private readonly IList<string> _sheetNames;
+            private readonly string _filePath;
             private readonly CheckedListBox _list;
             private readonly ComboBox _dedup;
 
             public IList<string> SelectedSheets { get; private set; }
             public string DedupKey { get; private set; }
 
-            public SheetSelectDialog(IList<string> sheetNames, IList<string> headers)
+            public SheetSelectDialog(IList<string> sheetNames, string filePath)
             {
                 Text = "选择工作表";
                 FormBorderStyle = FormBorderStyle.FixedToolWindow;
@@ -25,16 +28,21 @@ namespace ESQLNew
                 ShowInTaskbar = false;
                 ClientSize = new Size(360, 300);
 
+                _sheetNames = sheetNames;
+                _filePath = filePath;
+
                 _list = new CheckedListBox { Dock = DockStyle.Fill };
                 foreach (var n in sheetNames)
                     _list.Items.Add(n, true);
+                _list.ItemCheck += (s, e) =>
+                {
+                    this.BeginInvoke((Action)RebuildDedup);
+                };
 
                 _dedup = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
                 _dedup.Items.Add("不去重");
-                if (headers != null)
-                    foreach (var h in headers)
-                        if (!string.IsNullOrEmpty(h))
-                            _dedup.Items.Add(h);
+                if (sheetNames.Count > 0)
+                    PopulateDedup(sheetNames[0]);
                 _dedup.SelectedIndex = 0;
 
                 var all = new Button { Text = "全选", Dock = DockStyle.Fill };
@@ -80,6 +88,46 @@ namespace ESQLNew
                         selected.Add((string)_list.Items[i]);
                 SelectedSheets = selected;
                 DedupKey = _dedup.SelectedIndex <= 0 ? "" : (string)_dedup.SelectedItem;
+            }
+
+            private void PopulateDedup(string sheetName)
+            {
+                string current = _dedup.SelectedIndex > 0 ? (string)_dedup.SelectedItem : null;
+                _dedup.Items.Clear();
+                _dedup.Items.Add("不去重");
+                try
+                {
+                    var headers = ExcelStreamReader.ReadHeaders(_filePath, sheetName);
+                    if (headers != null)
+                        foreach (var h in headers)
+                            if (!string.IsNullOrEmpty(h))
+                                _dedup.Items.Add(h);
+                }
+                catch
+                {
+                }
+                _dedup.SelectedIndex = 0;
+                if (current != null)
+                    for (int i = 1; i < _dedup.Items.Count; i++)
+                        if (string.Equals((string)_dedup.Items[i], current, StringComparison.Ordinal))
+                        {
+                            _dedup.SelectedIndex = i;
+                            break;
+                        }
+            }
+
+            private void RebuildDedup()
+            {
+                if (IsDisposed) return;
+                string first = null;
+                for (int i = 0; i < _list.Items.Count; i++)
+                    if (_list.GetItemChecked(i))
+                    {
+                        first = (string)_list.Items[i];
+                        break;
+                    }
+                if (first != null)
+                    PopulateDedup(first);
             }
         }
     }

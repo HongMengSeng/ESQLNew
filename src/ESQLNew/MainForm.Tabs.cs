@@ -695,8 +695,7 @@ namespace ESQLNew
             try
             {
                 var names = ExcelStreamReader.SheetNames(path);
-                var firstHeaders = names.Count > 0 ? ExcelStreamReader.ReadHeaders(path, names[0]) : new List<string>();
-                using (var dlg = new SheetSelectDialog(names, firstHeaders))
+                using (var dlg = new SheetSelectDialog(names, path))
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK) return;
                     _selectedSheets = dlg.SelectedSheets;
