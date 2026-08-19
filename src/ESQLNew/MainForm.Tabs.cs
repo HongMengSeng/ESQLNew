@@ -673,15 +673,36 @@ namespace ESQLNew
                 _dedupKey = "";
                 _previewSheet = null;
                 _statusLabel.Text = "";
-                try
+                _chooseFileButton.Enabled = false;
+                var dlg = new ProgressDialog("读取工作表");
+                dlg.Show(this);
+                if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                    dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(1, "正在读取工作表…")));
+                string file = ofd.FileName;
+                System.Threading.Tasks.Task.Run(() =>
                 {
-                    var names = ExcelStreamReader.SheetNames(ofd.FileName);
-                    _selectedSheets = names;
-                }
-                catch (Exception ex)
-                {
-                    _statusLabel.Text = "无法读取工作表:" + ex.Message;
-                }
+                    try
+                    {
+                        var names = ExcelStreamReader.SheetNames(file);
+                        if (IsDisposed || !IsHandleCreated) return;
+                        BeginInvoke((System.Action)(() =>
+                        {
+                            _selectedSheets = names;
+                            dlg.Close();
+                            _chooseFileButton.Enabled = true;
+                        }));
+                    }
+                    catch (Exception ex)
+                    {
+                        if (IsDisposed || !IsHandleCreated) return;
+                        BeginInvoke((System.Action)(() =>
+                        {
+                            dlg.Close();
+                            _chooseFileButton.Enabled = true;
+                            _statusLabel.Text = "无法读取工作表:" + ex.Message;
+                        }));
+                    }
+                });
             }
         }
 
@@ -693,23 +714,43 @@ namespace ESQLNew
                 MessageBox.Show(this, "请先选择 Excel 文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            try
+            _sheetSelectButton.Enabled = false;
+            var dlg = new ProgressDialog("读取工作表");
+            dlg.Show(this);
+            if (!dlg.IsDisposed && dlg.IsHandleCreated)
+                dlg.BeginInvoke((System.Action)(() => dlg.ShowStep(1, "正在读取工作表…")));
+            System.Threading.Tasks.Task.Run(() =>
             {
-                var names = ExcelStreamReader.SheetNames(path);
-                using (var dlg = new SheetSelectDialog(names, path))
+                try
                 {
-                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
-                    _selectedSheets = dlg.SelectedSheets;
-                    _dedupKey = dlg.DedupKey;
-                    _previewSheet = _selectedSheets != null && _selectedSheets.Count > 0 ? _selectedSheets[0] : null;
-                    _statusLabel.Text = "已选 " + (_selectedSheets != null ? _selectedSheets.Count : 0) + " 个工作表"
-                        + (string.IsNullOrEmpty(_dedupKey) ? "" : ",去重键:" + _dedupKey);
+                    var names = ExcelStreamReader.SheetNames(path);
+                    if (IsDisposed || !IsHandleCreated) return;
+                    BeginInvoke((System.Action)(() =>
+                    {
+                        dlg.Close();
+                        _sheetSelectButton.Enabled = true;
+                        using (var sheetDlg = new SheetSelectDialog(names, path))
+                        {
+                            if (sheetDlg.ShowDialog(this) != DialogResult.OK) return;
+                            _selectedSheets = sheetDlg.SelectedSheets;
+                            _dedupKey = sheetDlg.DedupKey;
+                            _previewSheet = _selectedSheets != null && _selectedSheets.Count > 0 ? _selectedSheets[0] : null;
+                            _statusLabel.Text = "已选 " + (_selectedSheets != null ? _selectedSheets.Count : 0) + " 个工作表"
+                                + (string.IsNullOrEmpty(_dedupKey) ? "" : ",去重键:" + _dedupKey);
+                        }
+                    }));
                 }
-            }
-            catch (Exception ex)
-            {
-                _statusLabel.Text = "无法读取工作表:" + ex.Message;
-            }
+                catch (Exception ex)
+                {
+                    if (IsDisposed || !IsHandleCreated) return;
+                    BeginInvoke((System.Action)(() =>
+                    {
+                        dlg.Close();
+                        _sheetSelectButton.Enabled = true;
+                        _statusLabel.Text = "无法读取工作表:" + ex.Message;
+                    }));
+                }
+            });
         }
 
         private void Preview_Click(object sender, EventArgs e)
