@@ -150,5 +150,130 @@ namespace ESQLNew.Import
                 yield return rebuilt;
             }
         }
+
+        public static Task<ImportResult> RunMultiSheet(string connStr, string table, string excelPath,
+            IList<string> sheetNames, string dedupKey, int batchSize, int commitEvery,
+            Action<ImportProgress> onProgress, CancellationToken ct)
+        {
+            if (sheetNames == null || sheetNames.Count == 0)
+                throw new InvalidOperationException("未选择工作表");
+
+            IList<ColumnInfo> cols;
+            try
+            {
+                cols = GetTableColumns(connStr, table);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("无法读取目标表结构,请检查连接与表名:" + ex.Message, ex);
+            }
+            if (cols.Count == 0)
+                throw new InvalidOperationException("目标表不存在或无列:" + table);
+
+            IList<string> headers;
+            try
+            {
+                headers = ExcelStreamReader.ReadHeaders(excelPath, sheetNames[0]);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("无法读取 Excel 表头:" + ex.Message, ex);
+            }
+
+            var fieldMap = ColumnMapStore.GetMap(ColumnMapStore.ConfigPath, table);
+            var mappings = ColumnMapper.Map(headers, cols, fieldMap);
+            var positions = new List<int>();
+            for (int i = 0; i < mappings.Count; i++)
+                if (mappings[i].Matched)
+                    positions.Add(i);
+
+            if (positions.Count == 0)
+                throw new InvalidOperationException("Excel 表头与目标表字段无匹配,请检查列名:" + table);
+
+            IEnumerable<object[]> rows = MergeSheets(excelPath, sheetNames, positions, mappings, cols, fieldMap, dedupKey);
+            if (AutoIdNeeded(mappings, cols))
+            {
+                long nextId = GetMaxId(connStr, table) + 1;
+                rows = WithAutoId(rows, nextId);
+                mappings.Add(new ColumnMapping
+                {
+                    ExcelColumn = null,
+                    TableField = "id",
+                    Matched = true,
+                    TableColumn = GetColumn(cols, "id")
+                });
+            }
+
+            var result = new ImportResult();
+            BatchInserter.Execute(connStr, table, mappings, rows, batchSize, commitEvery, onProgress, result, ct);
+            return Task.FromResult(result);
+        }
+
+        internal static IEnumerable<object[]> MergeSheets(string excelPath, IList<string> sheetNames,
+            IList<int> positions, IList<ColumnMapping> canonicalMappings, IList<ColumnInfo> cols,
+            IDictionary<string, string> fieldMap, string dedupKey)
+        {
+            int dedupIdx = -1;
+            if (!string.IsNullOrEmpty(dedupKey))
+            {
+                for (int p = 0; p < positions.Count; p++)
+                {
+                    int src = positions[p];
+                    if (canonicalMappings[src].Matched &&
+                        string.Equals(canonicalMappings[src].ExcelColumn, dedupKey, StringComparison.OrdinalIgnoreCase))
+                    { dedupIdx = p; break; }
+                }
+                if (dedupIdx < 0)
+                    throw new InvalidOperationException("去重键列不存在: " + dedupKey);
+            }
+
+            var seen = dedupIdx >= 0 ? new HashSet<string>() : null;
+
+            bool first = true;
+            foreach (var sheet in sheetNames)
+            {
+                if (first)
+                {
+                    foreach (var row in RebuildRows(ExcelStreamReader.ReadRows(excelPath, sheet), positions))
+                    {
+                        if (seen != null)
+                        {
+                            string key = row[dedupIdx] == null ? "" : row[dedupIdx].ToString();
+                            if (!seen.Add(key)) continue;
+                        }
+                        yield return row;
+                    }
+                    first = false;
+                }
+                else
+                {
+                    IList<string> sheetHeaders = ExcelStreamReader.ReadHeaders(excelPath, sheet);
+                    var sheetMappings = ColumnMapper.Map(sheetHeaders, cols, fieldMap);
+                    var fieldToIdx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < sheetMappings.Count; i++)
+                        if (sheetMappings[i].Matched)
+                            fieldToIdx[sheetMappings[i].TableField] = i;
+
+                    foreach (var raw in ExcelStreamReader.ReadRows(excelPath, sheet))
+                    {
+                        var row = new object[positions.Count];
+                        for (int i = 0; i < positions.Count; i++)
+                        {
+                            int idx;
+                            if (fieldToIdx.TryGetValue(canonicalMappings[positions[i]].TableField, out idx) && idx < raw.Length)
+                                row[i] = raw[idx];
+                            else
+                                row[i] = null;
+                        }
+                        if (seen != null)
+                        {
+                            string key = row[dedupIdx] == null ? "" : row[dedupIdx].ToString();
+                            if (!seen.Add(key)) continue;
+                        }
+                        yield return row;
+                    }
+                }
+            }
+        }
     }
 }

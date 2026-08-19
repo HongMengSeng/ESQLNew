@@ -77,5 +77,39 @@ namespace ESQLNew.Tests
             var mappings = ColumnMapper.Map(headers, cols);
             Assert.False(ImportEngine.AutoIdNeeded(mappings, cols));
         }
+
+        [Fact]
+        public void MergeSheets_AlignsAndDedups()
+        {
+            string path = ESQLNew.Tests.ExcelStreamReaderTests.XlsxFixture.CreateMultiSheet();
+            try
+            {
+                var positions = new List<int> { 0, 1 };
+                var canonical = new List<ColumnMapping>
+                {
+                    new ColumnMapping { ExcelColumn = "维修单号", TableField = "repair_order_no", Matched = true },
+                    new ColumnMapping { ExcelColumn = "担当", TableField = "person_in_charge", Matched = true }
+                };
+                var cols = new List<ColumnInfo>
+                {
+                    new ColumnInfo { Name = "repair_order_no", DataType = "varchar", IsNullable = true, MaxLength = 50 },
+                    new ColumnInfo { Name = "person_in_charge", DataType = "varchar", IsNullable = true, MaxLength = 50 }
+                };
+                var fieldMap = new Dictionary<string, string>
+                {
+                    { "维修单号", "repair_order_no" },
+                    { "担当", "person_in_charge" }
+                };
+                var merged = ImportEngine.MergeSheets(path, new List<string> { "SheetA", "SheetB" },
+                    positions, canonical, cols, fieldMap, "维修单号").ToList();
+                Assert.Equal(5, merged.Count);
+                Assert.Equal("1001", merged[0][0] == null ? "" : merged[0][0].ToString());
+                Assert.Equal("张三", merged[0][1] == null ? "" : merged[0][1].ToString());
+            }
+            finally
+            {
+                ESQLNew.Tests.ExcelStreamReaderTests.XlsxFixture.DeleteMultiSheet(path);
+            }
+        }
     }
 }
