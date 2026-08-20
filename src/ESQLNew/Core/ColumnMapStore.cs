@@ -172,5 +172,37 @@ namespace ESQLNew.Core
             }
             return result;
         }
+
+        public static List<KeyValuePair<string, string>> ResolvePresets(IList<string> excelHeaders,
+            Dictionary<string, string> currentMap, IList<string> fieldNames)
+        {
+            var result = new List<KeyValuePair<string, string>>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var h in excelHeaders)
+            {
+                string header = h == null ? "" : h.Trim();
+                if (header.Length == 0) continue;
+                string preset = null;
+                if (currentMap != null)
+                    currentMap.TryGetValue(header, out preset);
+                if (preset != null && !fieldNames.Contains(preset))
+                    preset = null;
+                if (preset != null && !seen.Add(preset))
+                    preset = null;
+                result.Add(new KeyValuePair<string, string>(header, preset));
+            }
+            return result;
+        }
+
+        public static List<string> AvailableFields(IList<string> fieldNames, ISet<string> usedFields, string currentValue)
+        {
+            var result = new List<string>();
+            foreach (var f in fieldNames)
+                if (!usedFields.Contains(f))
+                    result.Add(f);
+            if (!string.IsNullOrEmpty(currentValue) && !result.Contains(currentValue))
+                result.Add(currentValue);
+            return result;
+        }
     }
 }

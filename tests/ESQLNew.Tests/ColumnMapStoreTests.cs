@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ESQLNew.Core;
 using Xunit;
 
@@ -224,6 +225,58 @@ namespace ESQLNew.Tests
         {
             var map = ColumnMapStore.BuildMap(new List<string> { "a" }, new List<string> { "x", "y" });
             Assert.Empty(map);
+        }
+
+        [Fact]
+        public void ResolvePresets_KeepsFirstDuplicateAndNullsRest()
+        {
+            var headers = new List<string> { "分类", "其它", "分类" };
+            var currentMap = new Dictionary<string, string>
+            {
+                { "分类", "category" },
+                { "其它", "other" }
+            };
+            var fieldNames = new List<string> { "category", "other" };
+            var result = ColumnMapStore.ResolvePresets(headers, currentMap, fieldNames);
+            Assert.Equal(3, result.Count);
+            Assert.Equal("category", result[0].Value);
+            Assert.Equal("other", result[1].Value);
+            Assert.Null(result[2].Value);
+        }
+
+        [Fact]
+        public void ResolvePresets_SkipsBlankHeaderAndStaleField()
+        {
+            var headers = new List<string> { "  ", "旧字段列" };
+            var currentMap = new Dictionary<string, string> { { "旧字段列", "not_exist_field" } };
+            var fieldNames = new List<string> { "category" };
+            var result = ColumnMapStore.ResolvePresets(headers, currentMap, fieldNames);
+            Assert.Equal(1, result.Count);
+            Assert.Equal("旧字段列", result[0].Key);
+            Assert.Null(result[0].Value);
+        }
+
+        [Fact]
+        public void AvailableFields_ExcludesUsed_KeepsCurrentValue()
+        {
+            var fieldNames = new List<string> { "a", "b", "c" };
+            var used = new HashSet<string> { "b" };
+            var result = ColumnMapStore.AvailableFields(fieldNames, used, "b");
+            Assert.Equal(3, result.Count);
+            Assert.Contains("a", result);
+            Assert.Contains("b", result);
+            Assert.Contains("c", result);
+            Assert.DoesNotContain(used.Except(new[] { "b" }), x => !result.Contains(x));
+        }
+
+        [Fact]
+        public void AvailableFields_DropsUsedOthers_NoCurrent()
+        {
+            var fieldNames = new List<string> { "a", "b", "c" };
+            var used = new HashSet<string> { "b", "c" };
+            var result = ColumnMapStore.AvailableFields(fieldNames, used, null);
+            Assert.Equal(1, result.Count);
+            Assert.Equal("a", result[0]);
         }
     }
 }
