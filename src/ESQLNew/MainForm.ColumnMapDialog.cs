@@ -72,10 +72,10 @@ namespace ESQLNew
                 foreach (var p in presets)
                 {
                     var cell = new DataGridViewComboBoxCell();
+                    cell.Items.Add("");
                     var items = ColumnMapStore.AvailableFields(_fieldNames, _usedFields, p.Value);
-                    cell.Items.Clear();
                     foreach (var it in items) cell.Items.Add(it);
-                    cell.Value = p.Value;
+                    cell.Value = p.Value ?? "";
                     _grid.Rows.Add(p.Key);
                     _grid.Rows[_grid.Rows.Count - 1].Cells[1] = cell;
                 }
@@ -123,9 +123,11 @@ namespace ESQLNew
                         string current = _grid.Rows[i].Cells[1].Value as string;
                         var items = ColumnMapStore.AvailableFields(_fieldNames, _usedFields, current);
                         cell.Items.Clear();
+                        cell.Items.Add("");
                         foreach (var it in items) cell.Items.Add(it);
+                        string normalized = current ?? "";
                         if (cell.Value == null || !items.Contains(cell.Value as string))
-                            cell.Value = current;
+                            cell.Value = normalized;
                     }
                 }
                 finally
