@@ -13,6 +13,8 @@ namespace ESQLNew
         {
             private readonly DataGridView _grid;
             private readonly List<string> _fieldNames;
+            private readonly HashSet<string> _usedFields;
+            private bool _updating;
 
             public Dictionary<string, string> Result { get; private set; }
 
@@ -50,20 +52,32 @@ namespace ESQLNew
                     if (combo != null)
                         combo.DropDownStyle = ComboBoxStyle.DropDownList;
                 };
-                foreach (var f in _fieldNames)
-                    fieldCol.Items.Add(f);
                 _grid.Columns.Add(fieldCol);
-
-                for (int i = 0; i < excelHeaders.Count; i++)
+                _grid.CellValueChanged += (s, e) =>
                 {
-                    string header = excelHeaders[i] == null ? "" : excelHeaders[i].Trim();
-                    if (header.Length == 0) continue;
-                    string preset = null;
-                    if (currentMap != null)
-                        currentMap.TryGetValue(header, out preset);
-                    if (preset != null && !_fieldNames.Contains(preset))
-                        preset = null;
-                    _grid.Rows.Add(header, preset);
+                    if (e.ColumnIndex == 1 && !_updating)
+                        RefreshUsedFields();
+                };
+                _grid.CurrentCellDirtyStateChanged += (s, e) =>
+                {
+                    if (_grid.IsCurrentCellDirty && _grid.CurrentCell != null && _grid.CurrentCell.ColumnIndex == 1)
+                        _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                };
+
+                var presets = ColumnMapStore.ResolvePresets(excelHeaders, currentMap, _fieldNames);
+                _usedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var p in presets)
+                    if (!string.IsNullOrEmpty(p.Value))
+                        _usedFields.Add(p.Value);
+                foreach (var p in presets)
+                {
+                    var cell = new DataGridViewComboBoxCell();
+                    var items = ColumnMapStore.AvailableFields(_fieldNames, _usedFields, p.Value);
+                    cell.Items.Clear();
+                    foreach (var it in items) cell.Items.Add(it);
+                    cell.Value = p.Value;
+                    _grid.Rows.Add(p.Key);
+                    _grid.Rows[_grid.Rows.Count - 1].Cells[1] = cell;
                 }
 
                 var save = new Button { Text = "保存", Width = 90, DialogResult = DialogResult.OK };
@@ -88,6 +102,36 @@ namespace ESQLNew
 
                 AcceptButton = save;
                 CancelButton = cancel;
+            }
+
+            private void RefreshUsedFields()
+            {
+                _updating = true;
+                try
+                {
+                    _usedFields.Clear();
+                    for (int i = 0; i < _grid.Rows.Count; i++)
+                    {
+                        var val = _grid.Rows[i].Cells[1].Value as string;
+                        if (!string.IsNullOrEmpty(val))
+                            _usedFields.Add(val);
+                    }
+                    for (int i = 0; i < _grid.Rows.Count; i++)
+                    {
+                        var cell = _grid.Rows[i].Cells[1] as DataGridViewComboBoxCell;
+                        if (cell == null) continue;
+                        string current = _grid.Rows[i].Cells[1].Value as string;
+                        var items = ColumnMapStore.AvailableFields(_fieldNames, _usedFields, current);
+                        cell.Items.Clear();
+                        foreach (var it in items) cell.Items.Add(it);
+                        if (cell.Value == null || !items.Contains(cell.Value as string))
+                            cell.Value = current;
+                    }
+                }
+                finally
+                {
+                    _updating = false;
+                }
             }
 
             protected override void OnFormClosing(FormClosingEventArgs e)
