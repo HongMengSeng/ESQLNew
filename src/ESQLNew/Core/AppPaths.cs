@@ -28,7 +28,7 @@ namespace ESQLNew.Core
                     using (var r = new StreamReader(appPathTxtPath))
                         line = r.ReadLine();
                     if (!string.IsNullOrWhiteSpace(line))
-                        dir = Path.GetFullPath(line.Trim());
+                        dir = Path.GetFullPath(Path.Combine(baseDirectory, line.Trim()));
                 }
                 if (!Directory.Exists(dir))
                     Directory.CreateDirectory(dir);
@@ -52,10 +52,16 @@ namespace ESQLNew.Core
                 string[] files = { "config.json", "column-maps.json", "logs.db" };
                 foreach (var f in files)
                 {
-                    string src = Path.Combine(_legacyDir, f);
-                    string dst = Path.Combine(_configDir, f);
-                    if (File.Exists(src) && !File.Exists(dst))
-                        File.Copy(src, dst);
+                    try
+                    {
+                        string src = Path.Combine(_legacyDir, f);
+                        string dst = Path.Combine(_configDir, f);
+                        if (File.Exists(src) && !File.Exists(dst))
+                            File.Copy(src, dst);
+                    }
+                    catch
+                    {
+                    }
                 }
             }
             catch

@@ -36,6 +36,16 @@ namespace ESQLNew.Tests
         }
 
         [Fact]
+        public void ConfigDir_RelativePathInAppPathTxt_ResolvesAgainstBase()
+        {
+            var custom = Path.Combine(_tmp, "configsub");
+            File.WriteAllText(Path.Combine(_tmp, "app-path.txt"), "configsub");
+            AppPaths.Initialize(_tmp, Path.Combine(_tmp, "app-path.txt"), Path.Combine(_tmp, "legacy"));
+            Assert.Equal(Path.GetFullPath(custom), Path.GetFullPath(AppPaths.ConfigDir));
+            Assert.True(Directory.Exists(AppPaths.ConfigDir));
+        }
+
+        [Fact]
         public void ConfigDir_AppPathTxtEmpty_FallsBackToBase()
         {
             File.WriteAllText(Path.Combine(_tmp, "app-path.txt"), "   ");
