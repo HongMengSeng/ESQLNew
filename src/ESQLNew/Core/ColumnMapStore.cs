@@ -20,10 +20,7 @@ namespace ESQLNew.Core
         {
             get
             {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "ESQLNew",
-                    "column-maps.json");
+                return AppPaths.ColumnMapsFile;
             }
         }
 

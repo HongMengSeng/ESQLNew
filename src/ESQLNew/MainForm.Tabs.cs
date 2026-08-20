@@ -68,10 +68,7 @@ namespace ESQLNew
             {
                 if (_logStore == null)
                 {
-                    _logStore = new SqLiteLogStore(Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                        "ESQLNew",
-                        "logs.db"));
+                    _logStore = new SqLiteLogStore(AppPaths.LogDbFile);
                 }
                 return _logStore;
             }
@@ -81,10 +78,7 @@ namespace ESQLNew
         {
             get
             {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "ESQLNew",
-                    "config.json");
+                return AppPaths.ConfigFile;
             }
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using ESQLNew.Core;
 
 namespace ESQLNew
 {
@@ -10,6 +11,7 @@ namespace ESQLNew
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            AppPaths.MigrateFromLegacy();
             Application.Run(new MainForm());
         }
     }
