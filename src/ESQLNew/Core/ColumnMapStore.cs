@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace ESQLNew.Core
@@ -185,7 +186,7 @@ namespace ESQLNew.Core
                 string preset = null;
                 if (currentMap != null)
                     currentMap.TryGetValue(header, out preset);
-                if (preset != null && !fieldNames.Contains(preset))
+                if (preset != null && !fieldNames.Contains(preset, StringComparer.OrdinalIgnoreCase))
                     preset = null;
                 if (preset != null && !seen.Add(preset))
                     preset = null;
@@ -200,7 +201,7 @@ namespace ESQLNew.Core
             foreach (var f in fieldNames)
                 if (!usedFields.Contains(f))
                     result.Add(f);
-            if (!string.IsNullOrEmpty(currentValue) && !result.Contains(currentValue))
+            if (!string.IsNullOrEmpty(currentValue) && !result.Contains(currentValue, StringComparer.OrdinalIgnoreCase))
                 result.Add(currentValue);
             return result;
         }

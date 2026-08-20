@@ -263,10 +263,9 @@ namespace ESQLNew.Tests
             var used = new HashSet<string> { "b" };
             var result = ColumnMapStore.AvailableFields(fieldNames, used, "b");
             Assert.Equal(3, result.Count);
-            Assert.Contains("a", result);
-            Assert.Contains("b", result);
-            Assert.Contains("c", result);
-            Assert.DoesNotContain(used.Except(new[] { "b" }), x => !result.Contains(x));
+            Assert.Equal("a", result[0]);
+            Assert.Equal("c", result[1]);
+            Assert.Equal("b", result[2]);
         }
 
         [Fact]
@@ -277,6 +276,22 @@ namespace ESQLNew.Tests
             var result = ColumnMapStore.AvailableFields(fieldNames, used, null);
             Assert.Equal(1, result.Count);
             Assert.Equal("a", result[0]);
+        }
+
+        [Fact]
+        public void ResolvePresets_DifferentHeadersSameField_KeepsFirst()
+        {
+            var headers = new List<string> { "分类", "类别" };
+            var currentMap = new Dictionary<string, string>
+            {
+                { "分类", "category" },
+                { "类别", "category" }
+            };
+            var fieldNames = new List<string> { "category" };
+            var result = ColumnMapStore.ResolvePresets(headers, currentMap, fieldNames);
+            Assert.Equal(2, result.Count);
+            Assert.Equal("category", result[0].Value);
+            Assert.Null(result[1].Value);
         }
     }
 }
